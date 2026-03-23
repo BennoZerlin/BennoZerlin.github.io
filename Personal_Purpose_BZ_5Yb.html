@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What is your Personal Purpose?</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0F0D1A;
+    --ink-soft: #2D2840;
+    --cream: #F7F4EE;
+    --warm: #EDE8DF;
+    --gold: #C9A84C;
+    --gold-light: #E8D5A3;
+    --violet: #5B3FA6;
+    --violet-pale: #EAE4F7;
+    --teal: #1A8A8A;
+    --teal-light: #D4EFEF;
+    --muted: #7A7490;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 300;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    padding: 80px 48px 64px;
+    background: var(--ink);
+    overflow: hidden;
+  }
+
+  header::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -120px;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(91,63,166,0.35) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: 10%;
+    width: 340px; height: 340px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,168,76,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-inner {
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .eyebrow {
+    font-family: 'Outfit', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: riseIn 0.7s 0.1s ease forwards;
+  }
+
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: clamp(42px, 7vw, 80px);
+    line-height: 1.08;
+    color: var(--cream);
+    letter-spacing: -0.01em;
+    opacity: 0;
+    animation: riseIn 0.8s 0.25s ease forwards;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--gold-light);
+  }
+
+  .header-sub {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 300;
+    color: rgba(247,244,238,0.55);
+    margin-top: 16px;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    animation: riseIn 0.7s 0.4s ease forwards;
+  }
+
+  .header-rule {
+    width: 48px;
+    height: 2px;
+    background: var(--gold);
+    margin-top: 32px;
+    opacity: 0;
+    animation: riseIn 0.6s 0.45s ease forwards;
+  }
+
+  /* ── MAIN GRID ── */
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 72px 48px 96px;
+  }
+
+  .section-intro {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 48px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    opacity: 0;
+    animation: riseIn 0.6s 0.55s ease forwards;
+  }
+
+  .section-intro::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(to right, var(--ink) 0%, transparent 100%);
+  }
+
+  /* ── THREE PILLARS ── */
+  .pillars {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    margin-bottom: 64px;
+  }
+
+  .pillar {
+    position: relative;
+    padding: 48px 36px;
+    background: white;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .pillar:hover {
+    box-shadow: 0 8px 40px rgba(15,13,26,0.08);
+    z-index: 1;
+  }
+
+  .pillar:nth-child(1) { animation: riseIn 0.65s 0.65s ease forwards; border-top: 3px solid var(--teal); }
+  .pillar:nth-child(2) { animation: riseIn 0.65s 0.8s ease forwards; border-top: 3px solid var(--gold); }
+  .pillar:nth-child(3) { animation: riseIn 0.65s 0.95s ease forwards; border-top: 3px solid var(--violet); }
+
+  .pillar-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 72px;
+    font-weight: 300;
+    line-height: 1;
+    position: absolute;
+    top: 16px; right: 20px;
+    opacity: 0.06;
+    color: var(--ink);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .pillar-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+  }
+
+  .pillar:nth-child(1) .pillar-tag { background: var(--teal-light); color: var(--teal); }
+  .pillar:nth-child(2) .pillar-tag { background: #FDF3DC; color: #9A6B10; }
+  .pillar:nth-child(3) .pillar-tag { background: var(--violet-pale); color: var(--violet); }
+
+  .pillar h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 18px;
+  }
+
+  .pillar p, .pillar ul {
+    font-size: 16px;
+    color: var(--ink-soft);
+    line-height: 1.8;
+  }
+
+  .pillar ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .pillar ul li {
+    padding: 5px 0;
+    padding-left: 18px;
+    position: relative;
+    border-bottom: 1px solid var(--warm);
+  }
+
+  .pillar ul li:last-child { border-bottom: none; }
+
+  .pillar ul li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    font-size: 11px;
+    color: var(--teal);
+    top: 7px;
+  }
+
+  /* ── PERSONA BAND ── */
+  .persona-band {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 56px 48px;
+    margin: 0 -48px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: riseIn 0.7s 1.1s ease forwards;
+  }
+
+  .persona-band::before {
+    content: '"';
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 280px;
+    line-height: 1;
+    position: absolute;
+    top: -40px; left: 24px;
+    color: white;
+    opacity: 0.04;
+    pointer-events: none;
+  }
+
+  .persona-inner {
+    position: relative;
+    max-width: 680px;
+  }
+
+  .persona-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+  }
+
+  .persona-quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(20px, 3vw, 28px);
+    font-weight: 300;
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--cream);
+  }
+
+  .persona-quote strong {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--gold-light);
+  }
+
+  .quote-attribution {
+    margin-top: 24px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--gold);
+  }
+
+  /* ── LEGACY STRIP ── */
+  .legacy-strip {
+    margin-top: 2px;
+    background: var(--gold);
+    padding: 28px 48px;
+    margin-left: -48px;
+    margin-right: -48px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    opacity: 0;
+    animation: riseIn 0.7s 1.25s ease forwards;
+  }
+
+  .legacy-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(15,13,26,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+
+  .legacy-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(15,13,26,0.6);
+    margin-bottom: 4px;
+  }
+
+  .legacy-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--warm);
+    padding: 24px 48px;
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    opacity: 0;
+    animation: riseIn 0.5s 1.4s ease forwards;
+  }
+
+  footer span {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .footer-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 680px) {
+    header { padding: 56px 24px 48px; }
+    main { padding: 48px 24px 72px; }
+    .pillars { grid-template-columns: 1fr; }
+    .persona-band, .legacy-strip { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
+    footer { padding: 24px; }
+  }
+
+  /* ── 5 WHY SECTION ── */
+  .why-section {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 48px 96px;
+    border-top: 1px solid var(--warm);
+  }
+
+  .why-section-intro {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .why-section-intro::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: linear-gradient(to right, var(--ink) 0%, transparent 100%);
+  }
+
+  .why-section-sub {
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    margin-bottom: 56px;
+  }
+
+  .why-dimensions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+
+  .why-card {
+    background: white;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: box-shadow 0.3s ease;
+  }
+
+  .why-card:hover {
+    box-shadow: 0 8px 40px rgba(15,13,26,0.08);
+    z-index: 1;
+  }
+
+  /* Colour-coding per dimension */
+  .why-card:nth-child(1) { border-top: 3px solid var(--teal);   animation: riseIn 0.65s 0.1s ease forwards; }
+  .why-card:nth-child(2) { border-top: 3px solid var(--gold);   animation: riseIn 0.65s 0.25s ease forwards; }
+  .why-card:nth-child(3) { border-top: 3px solid var(--violet); animation: riseIn 0.65s 0.4s ease forwards; }
+  .why-card:nth-child(4) { border-top: 3px solid #C05050;       animation: riseIn 0.65s 0.55s ease forwards; }
+
+  .why-card-header {
+    padding: 32px 32px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .why-card-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 64px;
+    font-weight: 300;
+    line-height: 1;
+    opacity: 0.07;
+    color: var(--ink);
+    position: absolute;
+    top: 12px;
+    right: 20px;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .why-card-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 2px;
+    margin-bottom: 12px;
+  }
+
+  .why-card:nth-child(1) .why-card-tag { background: var(--teal-light);    color: var(--teal); }
+  .why-card:nth-child(2) .why-card-tag { background: #FDF3DC;               color: #9A6B10; }
+  .why-card:nth-child(3) .why-card-tag { background: var(--violet-pale);    color: var(--violet); }
+  .why-card:nth-child(4) .why-card-tag { background: #FAEAEA;               color: #C05050; }
+
+  .why-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.2;
+    padding: 0 32px 24px;
+  }
+
+  .why-card-title span {
+    font-style: italic;
+    font-weight: 300;
+    font-size: 15px;
+    color: var(--muted);
+    display: block;
+    margin-top: 2px;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.01em;
+  }
+
+  .why-layers {
+    list-style: none;
+    padding: 0 0 32px;
+    margin: 0;
+    border-top: 1px solid var(--warm);
+  }
+
+  .why-layer {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--warm);
+    transition: background 0.2s ease;
+  }
+
+  .why-layer:last-child { border-bottom: none; }
+  .why-layer:hover { background: var(--cream); }
+
+  .why-layer-depth {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 1px;
+  }
+
+  .why-card:nth-child(1) .why-layer-depth { background: var(--teal-light);  color: var(--teal); }
+  .why-card:nth-child(2) .why-layer-depth { background: #FDF3DC;             color: #9A6B10; }
+  .why-card:nth-child(3) .why-layer-depth { background: var(--violet-pale);  color: var(--violet); }
+  .why-card:nth-child(4) .why-layer-depth { background: #FAEAEA;             color: #C05050; }
+
+  .why-layer-content {
+    flex: 1;
+  }
+
+  .why-layer-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+
+  .why-layer-text {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+
+  /* connector arrow between layers */
+  .why-connector {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 32px 0 43px;
+    height: 0;
+    overflow: visible;
+    position: relative;
+  }
+
+  .why-connector::before {
+    content: '↓';
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.4;
+    position: absolute;
+    left: 43px;
+    top: -7px;
+  }
+
+  /* root cause band */
+  .why-root {
+    background: var(--ink);
+    color: var(--cream);
+    margin: 0 -48px;
+    padding: 40px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    opacity: 0;
+    animation: riseIn 0.7s 0.7s ease forwards;
+  }
+
+  .why-root-item {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .why-root-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 7px;
+  }
+
+  .why-root-item:nth-child(1) .why-root-dot { background: var(--teal); }
+  .why-root-item:nth-child(2) .why-root-dot { background: var(--gold); }
+  .why-root-item:nth-child(3) .why-root-dot { background: var(--violet); }
+  .why-root-item:nth-child(4) .why-root-dot { background: #C05050; }
+
+  .why-root-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+
+  .why-root-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-style: italic;
+    font-weight: 300;
+    line-height: 1.5;
+    color: rgba(247,244,238,0.75);
+  }
+
+  @media (max-width: 680px) {
+    .why-section { padding: 56px 24px 72px; }
+    .why-dimensions { grid-template-columns: 1fr; }
+    .why-root { margin: 0 -24px; padding: 32px 24px; grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="eyebrow">Personal Purpose</div>
+    <h1>Benno<br><em>Zerlin</em></h1>
+    <p class="header-sub">Leading ambitious transformations of relevant businesses and their people</p>
+    <div class="header-rule"></div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+  <div class="section-intro">Three dimensions</div>
+
+  <!-- PILLARS -->
+  <div class="pillars">
+
+    <!-- Pillar 1: Mission -->
+    <div class="pillar">
+      <div class="pillar-num">1</div>
+      <span class="pillar-tag">Mission</span>
+      <h2>Personal Mission Statement</h2>
+      <ul>
+        <li>Lead ambitious transformations</li>
+        <li>Of relevant businesses</li>
+        <li>And their people</li>
+      </ul>
+    </div>
+
+    <!-- Pillar 2: Persona -->
+    <div class="pillar">
+      <div class="pillar-num">2</div>
+      <span class="pillar-tag">Persona</span>
+      <h2>Professional Persona</h2>
+      <p>A visionary yet hand-on leader who blends empathy and unconditional kindness with a relentless drive for performance and transformative success.</p>
+    </div>
+
+    <!-- Pillar 3: Brand -->
+    <div class="pillar">
+      <div class="pillar-num">3</div>
+      <span class="pillar-tag">Brand</span>
+      <h2>Leadership Brand</h2>
+      <p>Building a lasting legacy of both human and business growth across industries.</p>
+    </div>
+
+  </div>
+
+  <!-- QUOTE BAND -->
+  <div class="persona-band">
+    <div class="persona-inner">
+      <div class="persona-label">On kindness &amp; ambition</div>
+      <p class="persona-quote">
+        The challenge of leadership is to be <strong>strong, but not rude</strong>; be <strong>kind, but not weak</strong>; be bold, but not a bully; be thoughtful, but not lazy; be humble, but not timid; be proud, but not arrogant.
+      </p>
+      <div class="quote-attribution">— Jim Rohn</div>
+    </div>
+  </div>
+
+  <!-- LEGACY STRIP -->
+  <div class="legacy-strip">
+    <div class="legacy-icon">✦</div>
+    <div>
+      <div class="legacy-label">Legacy</div>
+      <div class="legacy-text">Building a lasting legacy of both human and business growth</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- 5 WHY SECTION -->
+<section class="why-section">
+
+  <div class="why-section-intro">Five layers of why</div>
+  <p class="why-section-sub">A root-cause analysis of the mission statement — what drives each dimension at its deepest level.</p>
+
+  <div class="why-dimensions">
+
+    <!-- Dimension 1: To Lead -->
+    <div class="why-card">
+      <div class="why-card-num">1</div>
+      <div class="why-card-header">
+        <span class="why-card-tag">Mission · Dimension 1</span>
+      </div>
+      <div class="why-card-title">To Lead<span>Why do you lead?</span></div>
+      <ul class="why-layers">
+        <li class="why-layer">
+          <div class="why-layer-depth">1</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Freedom</div>
+            <div class="why-layer-text">You value the freedom to make decisions and own responsibility for them.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">2</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Cognitive Power</div>
+            <div class="why-layer-text">Your understanding and cognitive abilities lead to better outcomes when you lead.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">3</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Proven Results</div>
+            <div class="why-layer-text">Experience confirms you achieve better results when you are in the lead.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">4</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Obligation</div>
+            <div class="why-layer-text">A personal sense of duty compels you to step into leadership roles.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">5</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Lifelong Identity</div>
+            <div class="why-layer-text">Since childhood, internal and external forces have positioned you as a leader.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Dimension 2: Ambitious Transformations -->
+    <div class="why-card">
+      <div class="why-card-num">2</div>
+      <div class="why-card-header">
+        <span class="why-card-tag">Mission · Dimension 2</span>
+      </div>
+      <div class="why-card-title">Ambitious Transformations<span>Why ambition and transformation?</span></div>
+      <ul class="why-layers">
+        <li class="why-layer">
+          <div class="why-layer-depth">1</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Creative Drive</div>
+            <div class="why-layer-text">You want to create and build — not merely manage what already exists.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">2</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Growth as Driver</div>
+            <div class="why-layer-text">Growth is the key engine of wealth creation and positive societal change.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">3</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Economic Impact</div>
+            <div class="why-layer-text">Transformations generate economic surplus that benefits society broadly.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">4</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Innovation Focus</div>
+            <div class="why-layer-text">Innovation and transformation are the mechanisms of meaningful, lasting change.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">5</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Seniority Alignment</div>
+            <div class="why-layer-text">As your career has matured, the scale of ambition you seek has grown with it.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Dimension 3: Of Relevant Businesses -->
+    <div class="why-card">
+      <div class="why-card-num">3</div>
+      <div class="why-card-header">
+        <span class="why-card-tag">Mission · Dimension 3</span>
+      </div>
+      <div class="why-card-title">Of Relevant Businesses<span>Why businesses — and why relevant ones?</span></div>
+      <ul class="why-layers">
+        <li class="why-layer">
+          <div class="why-layer-depth">1</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Natural Arena</div>
+            <div class="why-layer-text">You lead in business contexts — making companies the logical stage for impact.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">2</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Desire for Impact</div>
+            <div class="why-layer-text">Relevant, sizable businesses maximise the reach and depth of your influence.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">3</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Scale of Change</div>
+            <div class="why-layer-text">Larger businesses amplify the impact on employees, customers, and society.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">4</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Career Criteria</div>
+            <div class="why-layer-text">Size and relevance are decisive filters in evaluating every opportunity.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">5</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Legacy Requirement</div>
+            <div class="why-layer-text">Only relevant businesses create the conditions for a lasting, visible legacy.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Dimension 4: And Their People -->
+    <div class="why-card">
+      <div class="why-card-num">4</div>
+      <div class="why-card-header">
+        <span class="why-card-tag">Mission · Dimension 4</span>
+      </div>
+      <div class="why-card-title">And Their People<span>Why does the human dimension matter?</span></div>
+      <ul class="why-layers">
+        <li class="why-layer">
+          <div class="why-layer-depth">1</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Greatest Motivation</div>
+            <div class="why-layer-text">Developing people — especially top talent — is your deepest source of energy.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">2</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Need for Bonding</div>
+            <div class="why-layer-text">A strong inner need for deep, trust-based relationships shapes how you lead.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">3</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Value of Trust</div>
+            <div class="why-layer-text">Relationships built on trust and love are among the most valuable things in life.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">4</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Ultimate Fulfillment</div>
+            <div class="why-layer-text">Love and happiness are the ultimate goals — these relationships are central to both.</div>
+          </div>
+        </li>
+        <li class="why-layer">
+          <div class="why-layer-depth">5</div>
+          <div class="why-layer-content">
+            <div class="why-layer-label">Empathetic Identity</div>
+            <div class="why-layer-text">Unconditional kindness is inseparable from who you are as a leader and a person.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ROOT CAUSE BAND -->
+  <div class="why-root">
+    <div class="why-root-item">
+      <div class="why-root-dot"></div>
+      <div>
+        <div class="why-root-label">Root · Lead</div>
+        <div class="why-root-text">A lifelong identity as leader, confirmed by results and driven by duty.</div>
+      </div>
+    </div>
+    <div class="why-root-item">
+      <div class="why-root-dot"></div>
+      <div>
+        <div class="why-root-label">Root · Transform</div>
+        <div class="why-root-text">A creative drive to build growth that generates meaningful societal surplus.</div>
+      </div>
+    </div>
+    <div class="why-root-item">
+      <div class="why-root-dot"></div>
+      <div>
+        <div class="why-root-label">Root · Businesses</div>
+        <div class="why-root-text">Scale and relevance as the prerequisite for a visible, lasting legacy.</div>
+      </div>
+    </div>
+    <div class="why-root-item">
+      <div class="why-root-dot"></div>
+      <div>
+        <div class="why-root-label">Root · People</div>
+        <div class="why-root-text">Love, trust and human growth as the deepest source of purpose and fulfilment.</div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span>Personal Purpose Framework</span>
+  <div class="footer-dot"></div>
+  <span>Leadership · Growth · Legacy</span>
+</footer>
+
+</body>
+</html>
