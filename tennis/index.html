@@ -328,6 +328,17 @@ async function sessionAudio(rec) {
 async function deleteSession(id) {
   try { await dbTx(["sessions", "chunks"], "readwrite", t => { t.objectStore("sessions").delete(id); const ix = t.objectStore("chunks").index("sid"); ix.openKeyCursor(IDBKeyRange.only(id)).onsuccess = e => { const c = e.target.result; if (c) { t.objectStore("chunks").delete(c.primaryKey); c.continue(); } }; }); } catch (e) {}
 }
+// Phone storage: audio that is safely in Drive is removed from the phone after 14 days; the log and stats stay.
+const KEEP_AUDIO_DAYS = 14;
+async function pruneAudio() {
+  try {
+    const old = (await allSessions()).filter(r => r.uploaded && !r.audioPruned && r.start < Date.now() - KEEP_AUDIO_DAYS * 864e5);
+    for (const r of old) {
+      await dbTx(["chunks"], "readwrite", t => { const ix = t.objectStore("chunks").index("sid"); ix.openKeyCursor(IDBKeyRange.only(r.id)).onsuccess = e => { const c = e.target.result; if (c) { t.objectStore("chunks").delete(c.primaryKey); c.continue(); } }; });
+      r.audioPruned = Date.now(); await putSession(r);
+    }
+  } catch (e) {}
+}
 function sessionRecord(done) {
   return { id: S.sid, key: S.key, name: plan().name, start: S.sessionStart, secs: Math.round(sessionSecs()), mime: S.recMime, log: logText(), done: !!done, exported: false, uploaded: 0 };
 }
@@ -630,7 +641,7 @@ function render() {
       if (!l.length) { list.innerHTML = '<p class="note">No sessions yet.</p>'; $("exn").disabled = true; return; }
       $("exn").onclick = () => exportSessions(l.filter(r => !r.exported));
       $("exn").disabled = !l.some(r => !r.exported);
-      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + ((r.secs || 0) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + ((r.secs || 0) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
       list.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => exportSessions(l.filter(r => r.id === b.dataset.ex)));
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
     });
@@ -694,7 +705,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-12";
+const APP_VERSION = "2026-10-14-13";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
@@ -734,6 +745,7 @@ addEventListener("touchend", e => {
 /* ---------------- Boot ---------------- */
 render();
 checkUpdate();
+setTimeout(pruneAudio, 5000);
 setTimeout(() => syncDrive(false), 1500);
 (async () => { try { if (window.claude && claude.use) S.downloads = await claude.use("downloads"); } catch (e) { S.downloads = null; } })();
 </script>
