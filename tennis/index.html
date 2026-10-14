@@ -17,6 +17,7 @@
   --develop: #9cc0ea;     /* status colours from the roadmap */
   --stabilize: #f0d27a;
   --compete: #97d39a;
+  --gap: #f0907f;
   --font-display: "Saira Condensed", "Arial Narrow", sans-serif-condensed, system-ui, sans-serif;
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -143,6 +144,28 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .dv-min { white-space: nowrap; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--fg); font-variant-numeric: tabular-nums; }
 .dv-goal { color: var(--fg); margin-top: 4px; font-weight: 500; }
 .dv-goal::before { content: "Goal · "; color: var(--muted); font-weight: 400; }
+
+/* Player profile */
+.lvl, .pri { display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--line); }
+.lvl.strength { color: var(--compete); } .lvl.par { color: var(--stabilize); } .lvl.gap { color: var(--gap); }
+.pri { color: var(--muted); background: transparent; border: 1px solid var(--line); } .pri.pa { color: var(--fg); border-color: var(--muted); }
+.pf-quad { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.pf-q { background: var(--panel); border-top: 4px solid var(--line); padding: 12px 14px; font-size: .92rem; }
+.pf-q.gap { border-top-color: var(--gap); } .pf-q.strength { border-top-color: var(--compete); } .pf-q.later { border-top-color: var(--muted); } .pf-q.maintain { border-top-color: var(--line); }
+.pf-q .dv-k { margin-top: 0; } .pf-q ol, .pf-q ul { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 3px; color: var(--muted); }
+.pf-q.gap ol, .pf-q.strength ul { color: var(--fg); }
+.pf-list { display: grid; }
+.pf-group { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--clay); font-weight: 600; padding: 12px 0 2px; }
+.pf-item { padding: 11px 0; border-bottom: 1px solid var(--line); display: grid; gap: 5px; }
+.pf-item:not(.core) .dv-bn { font-weight: 500; color: var(--muted); }
+.pf-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pf-tags { display: flex; gap: 5px; }
+.pf-scores { display: flex; gap: 16px; flex-wrap: wrap; }
+.pf-sc { display: grid; gap: 2px; } .pf-sc .dv-k { margin-top: 0; font-size: .62rem; }
+.sc { display: inline-flex; align-items: center; gap: 3px; } .sc i { width: 12px; height: 12px; border-radius: 3px; background: var(--line); } .sc i.on { background: var(--fg); }
+.sc b { font-size: .8rem; margin-left: 5px; font-variant-numeric: tabular-nums; } .sc.na { color: var(--muted); font-size: .8rem; }
+.pf-c { color: var(--muted); font-size: .9rem; }
+.pf-syn { background: var(--panel); border-left: 4px solid var(--ball); padding: 12px 14px; font-size: .93rem; }
 
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
@@ -567,8 +590,25 @@ function renderStatus() {
   el.innerHTML = "<div><b>Screen</b> · " + screen + "</div><div><b>Audio</b> · " + rec + "</div>";
 }
 
+/* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
+const APP_VERSION = "2026-10-14-5";
+async function checkUpdate() {
+  if (S.view === "live" || S.view === "overview" || S.view === "done") return;
+  try {
+    const v = (await (await fetch("version.txt?" + Date.now(), { cache: "no-store" })).text()).trim();
+    if (!v || v === APP_VERSION) return;
+    let tried = ""; try { tried = sessionStorage.getItem("ct-upd") || ""; } catch (e) {}
+    if (tried === v) return;
+    try { sessionStorage.setItem("ct-upd", v); } catch (e) {}
+    await fetch("./", { cache: "reload" }); await fetch("index.html", { cache: "reload" });
+    location.reload();
+  } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
+
 /* ---------------- Boot ---------------- */
 render();
+checkUpdate();
 setTimeout(() => syncDrive(false), 1500);
 (async () => { try { if (window.claude && claude.use) S.downloads = await claude.use("downloads"); } catch (e) { S.downloads = null; } })();
 </script>
