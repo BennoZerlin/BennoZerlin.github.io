@@ -1,0 +1,329 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body><title>Court Timer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Court Timer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen phone app, black court-at-night ground (OLED-friendly), clay accent for the active block, ball-yellow for the live clock. Single dark look by design. */
+:root {
+  --bg: #050607;          /* near-black: saves battery on OLED */
+  --panel: #111417;
+  --line: #22282d;
+  --fg: #e9ece8;
+  --muted: #8a948f;
+  --clay: #d8693a;        /* clay court: active block */
+  --ball: #dbe85a;        /* ball yellow: running clock */
+  --develop: #9cc0ea;     /* status colours from the roadmap */
+  --stabilize: #f0d27a;
+  --compete: #97d39a;
+  --font-display: "Saira Condensed", "Arial Narrow", sans-serif-condensed, system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.4;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap { max-width: 560px; margin: 0 auto; padding-block: 20px 28px; display: flex; flex-direction: column; gap: 18px; min-height: 100%; box-sizing: border-box; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: 2.1rem; letter-spacing: .02em; margin: 0; text-transform: uppercase; }
+.sub { color: var(--muted); font-size: .9rem; margin: 2px 0 0; }
+.eyebrow { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
+
+/* Session menu */
+.sessions { display: grid; gap: 10px; }
+.sess {
+  display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px; text-align: left; width: 100%;
+}
+.sess .letter { font-family: var(--font-display); font-size: 2.4rem; font-weight: 700; line-height: 1; text-align: center; }
+.sess .name { font-weight: 600; }
+.sess .meta { color: var(--muted); font-size: .85rem; }
+.sess .mins { font-family: var(--font-display); font-size: 1.4rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tag { display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; margin-right: 4px; background: var(--line); }
+.tag.develop { color: var(--develop); } .tag.stabilize { color: var(--stabilize); } .tag.compete { color: var(--compete); }
+.note { color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); padding-top: 12px; }
+
+/* Session overview */
+.blocks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.blocks li { display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.blocks .t { font-family: var(--font-display); font-size: 1.15rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.blocks .bn { font-weight: 600; }
+.blocks .bd { color: var(--muted); font-size: .85rem; }
+.blocks li.done { opacity: .4; }
+.blocks li.now .t, .blocks li.now .bn { color: var(--clay); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { flex: 1 1 120px; padding: 16px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-weight: 600; font-size: 1rem; min-height: 56px; }
+.btn.primary { background: var(--clay); border-color: var(--clay); color: #111; }
+.btn.ghost { background: transparent; }
+.status { display: grid; gap: 4px; font-size: .82rem; color: var(--muted); }
+.status b { color: var(--fg); font-weight: 600; }
+.ok { color: var(--compete); } .warn { color: var(--stabilize); }
+
+/* Running screen */
+.live { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.blockname { font-family: var(--font-display); font-weight: 700; font-size: 2.6rem; line-height: 1; text-transform: uppercase; color: var(--clay); text-wrap: balance; }
+.blockdesc { color: var(--muted); font-size: .95rem; }
+.clock { font-family: var(--font-display); font-weight: 700; font-size: clamp(5rem, 30vw, 9rem); line-height: .9; color: var(--ball); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.clock.paused { color: var(--muted); }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--clay); width: 0; }
+.next { font-size: .9rem; color: var(--muted); }
+.next b { color: var(--fg); }
+.total { font-family: var(--font-display); font-size: 1.2rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rec { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--muted); }
+.rec i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.rec.on i { background: #e5484d; animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .rec.on i { animation: none; } }
+
+/* Log */
+pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
+.toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
+</style>
+
+<div class="wrap" id="app"></div>
+
+<script>
+/* ---------------- Plan: Phase 1, valid Oct 2026 – end Q1 2027 ---------------- */
+const PLAN = {
+  A: { name: "Coach", status: ["develop"], with: "Coach · Engine",
+       blocks: [ { name: "Coach session", min: 60, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", cue: "Coach session. Sixty minutes. Focus engine: loose wrist, let the racket swing." } ] },
+  B: { name: "Stabilize and compete", status: ["stabilize", "compete"], with: "Wife or teammate",
+       blocks: [
+         { name: "Connect", min: 10, desc: "Mini-tennis, then slow deep rally. A few balls with the three-finger grip; wrist hold between balls.", cue: "Connect. Ten minutes. Slow arm, clean contact, every ball past the service line." },
+         { name: "Deep consistency", min: 10, desc: "Forehand first, then bring in the backhand. Game: 50 or 100 ball rally, or deep middle first to 20.", cue: "Deep consistency. Ten minutes. Forehand first, then the backhand." },
+         { name: "Direction training", min: 10, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line.", cue: "Direction training. Ten minutes. Find the cross angle." },
+         { name: "Direction under pressure", min: 10, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", cue: "Direction under pressure. Ten minutes. Deep crosscourt when you are pushed wide." },
+         { name: "Match play", min: 20, desc: "Tiebreaks or match tiebreaks with the Match Card. Deep ball wins count double.", cue: "Match play. Twenty minutes. Three deep balls win the point." } ] },
+  C: { name: "Serve basket", status: ["stabilize"], with: "Alone, on court",
+       blocks: [
+         { name: "Set-up and warm-up", min: 5, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", cue: "Set up and warm up. Five minutes." },
+         { name: "Target practice", min: 20, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", cue: "Target practice. Twenty minutes. Ten serves per target. From the knees, core through the ball." },
+         { name: "Target sequence", min: 35, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating.", cue: "Target sequence. Thirty five minutes. Flat down the T twice, kick wide twice, then switch sides." } ] },
+  D: { name: "Wall", status: ["develop", "stabilize"], with: "Alone, tennis wall",
+       blocks: [
+         { name: "Loosen", min: 5, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", cue: "Loosen. Five minutes. Grip pressure three out of ten. Listen for the swoosh." },
+         { name: "Drop-feed whip", min: 15, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", cue: "Drop feed whip. Fifteen minutes. Three finger grip, early preparation, breathe out through contact." },
+         { name: "Slow ball off the wall", min: 10, desc: "Play it soft, let it come back slow, accelerate through it with the whip.", cue: "Slow ball off the wall. Ten minutes. Stay relaxed, let the racket swing." },
+         { name: "Serve targets", min: 30, desc: "Target on the wall at T height: flat down the T twice, kick down the T twice.", cue: "Serve targets. Thirty minutes. Flat down the T twice, kick down the T twice." } ] }
+};
+
+/* ---------------- State ---------------- */
+const S = { view: "menu", key: null, i: 0, running: false, blockStart: 0, blockElapsed: 0, sessionStart: 0,
+            pausedAt: 0, pausedTotal: 0, log: [], warned: false, wake: null, rec: null, chunks: [], recMime: "",
+            recState: "off", audio: null, downloads: null, tick: null, finished: false };
+const $ = id => document.getElementById(id);
+const fmt = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), r = s % 60; return m + ":" + String(r).padStart(2, "0"); };
+const fmtH = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0"); };
+const plan = () => PLAN[S.key];
+const totalMin = k => PLAN[k].blocks.reduce((a, b) => a + b.min, 0);
+const now = () => Date.now();
+function sessionSecs() { if (!S.sessionStart) return 0; const end = S.running ? now() : (S.pausedAt || now()); return (end - S.sessionStart - S.pausedTotal) / 1000; }
+
+/* ---------------- Speech ---------------- */
+let voice = null;
+function pickVoice() {
+  try { const vs = speechSynthesis.getVoices(); voice = vs.find(v => /en-GB/i.test(v.lang) && /Daniel|Serena|Kate|Arthur/i.test(v.name)) || vs.find(v => /^en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; } catch (e) {}
+}
+try { speechSynthesis.onvoiceschanged = pickVoice; pickVoice(); } catch (e) {}
+function say(text) {
+  try { const u = new SpeechSynthesisUtterance(text); u.lang = "en-GB"; if (voice) u.voice = voice; u.rate = 0.98; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+}
+function chime() {
+  try {
+    S.audio = S.audio || new (window.AudioContext || window.webkitAudioContext)();
+    const c = S.audio, t = c.currentTime;
+    [880, 1320].forEach((f, k) => { const o = c.createOscillator(), g = c.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + k * .18); g.gain.exponentialRampToValueAtTime(0.25, t + k * .18 + .02); g.gain.exponentialRampToValueAtTime(0.0001, t + k * .18 + .35); o.connect(g).connect(c.destination); o.start(t + k * .18); o.stop(t + k * .18 + .4); });
+  } catch (e) {}
+}
+
+/* ---------------- Wake lock ---------------- */
+async function lockScreen() {
+  try { if ("wakeLock" in navigator) { S.wake = await navigator.wakeLock.request("screen"); S.wake.addEventListener("release", () => { S.wake = null; renderStatus(); }); } } catch (e) { S.wake = null; }
+  renderStatus();
+}
+function unlockScreen() { try { S.wake && S.wake.release(); } catch (e) {} S.wake = null; }
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.running && !S.wake) lockScreen(); });
+
+/* ---------------- Recording (works where the page may use the microphone) ---------------- */
+async function startRecording() {
+  if (!navigator.mediaDevices || !window.MediaRecorder) { S.recState = "unavailable"; return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
+    const mime = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
+    S.rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    S.recMime = S.rec.mimeType || mime || "audio/mp4"; S.chunks = [];
+    S.rec.ondataavailable = e => { if (e.data && e.data.size) S.chunks.push(e.data); };
+    S.rec.start(10000); S.recState = "on";
+  } catch (e) { S.recState = "blocked"; }
+}
+function stopRecording() {
+  return new Promise(res => {
+    if (!S.rec || S.rec.state === "inactive") return res();
+    S.rec.onstop = () => { try { S.rec.stream.getTracks().forEach(t => t.stop()); } catch (e) {} res(); };
+    try { S.rec.stop(); } catch (e) { res(); }
+  });
+}
+function pauseRecording(p) { try { if (S.rec && S.rec.state !== "inactive") p ? S.rec.pause() : S.rec.resume(); } catch (e) {} }
+
+/* ---------------- Session flow ---------------- */
+function logLine(text) { S.log.push(fmtH(sessionSecs()) + "  " + text); }
+function startBlock(i, spoken) {
+  S.i = i; S.blockStart = now(); S.blockElapsed = 0; S.warned = false;
+  const b = plan().blocks[i];
+  logLine("Block " + (i + 1) + " · " + b.name + " (" + b.min + " min)");
+  if (spoken) { chime(); setTimeout(() => say(b.cue), 700); }
+}
+function blockSecs() { return S.blockElapsed + (S.running ? (now() - S.blockStart) / 1000 : 0); }
+async function start() {
+  S.log = []; S.finished = false; S.pausedTotal = 0; S.pausedAt = 0;
+  say("Session " + S.key + ". Starting now."); // unlocks speech on iOS (inside the tap)
+  try { S.audio = S.audio || new (window.AudioContext || window.webkitAudioContext)(); S.audio.resume(); } catch (e) {}
+  await lockScreen();
+  await startRecording();
+  S.sessionStart = now(); S.running = true;
+  logLine("Session " + S.key + " · " + plan().name + " started " + new Date().toLocaleString("en-GB"));
+  if (S.recState !== "on") logLine("Audio recording: not available on this page");
+  startBlock(0, false);
+  setTimeout(() => say(plan().blocks[0].cue), 1600);
+  S.view = "live"; render(); loop();
+}
+function loop() {
+  clearInterval(S.tick);
+  S.tick = setInterval(() => {
+    if (!S.running) return;
+    const b = plan().blocks[S.i], left = b.min * 60 - blockSecs();
+    if (!S.warned && b.min >= 5 && left <= 60) { S.warned = true; say("One minute left."); }
+    if (left <= 0) {
+      if (S.i + 1 < plan().blocks.length) startBlock(S.i + 1, true);
+      else { finish(true); return; }
+    }
+    renderLive();
+  }, 250);
+}
+function pause() {
+  if (S.running) { S.blockElapsed = blockSecs(); S.running = false; S.pausedAt = now(); pauseRecording(true); logLine("Paused"); say("Paused."); }
+  else { S.pausedTotal += now() - S.pausedAt; S.pausedAt = 0; S.blockStart = now(); S.running = true; pauseRecording(false); logLine("Resumed"); say("Resumed."); lockScreen(); }
+  renderLive();
+}
+function skip(dir) {
+  if (!S.running) pause();
+  const n = S.i + dir;
+  if (n < 0) { startBlock(0, true); }
+  else if (n >= plan().blocks.length) { finish(false); return; }
+  else startBlock(n, true);
+  renderLive();
+}
+function mark() { logLine("Mark"); toast("Marked at " + fmtH(sessionSecs())); }
+async function finish(natural) {
+  clearInterval(S.tick);
+  if (S.running) { S.blockElapsed = blockSecs(); }
+  S.running = false; S.pausedAt = S.pausedAt || now();
+  logLine("Session ended" + (natural ? "" : " early"));
+  if (natural) { chime(); setTimeout(() => say("Session complete. Well played."), 700); }
+  await stopRecording(); unlockScreen();
+  S.finished = true; S.view = "done"; render();
+}
+
+/* ---------------- Saving ---------------- */
+function stamp() { const d = new Date(S.sessionStart || now()); const p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()); }
+async function saveFile(name, data) {
+  const dl = S.downloads;
+  if (dl) { try { await dl.save({ filename: name, data }); toast("Saved " + name); return; } catch (e) { if (e && e.code === "declined") { toast("Not saved."); return; } } }
+  try {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: "text/plain" });
+    const file = new File([blob], name, { type: blob.type || "application/octet-stream" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); toast("Shared " + name); return; }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    toast("Downloading " + name);
+  } catch (e) { toast("Could not save here. Copy the log instead."); }
+}
+function logText() { return "Court Timer · Session " + S.key + " · " + plan().name + "\n\n" + S.log.join("\n") + "\n"; }
+async function copyLog() {
+  try { await navigator.clipboard.writeText(logText()); toast("Log copied."); }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($("log")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Select and copy the log."); }
+}
+
+/* ---------------- Rendering ---------------- */
+function toast(t) { const el = $("toast"); if (el) { el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => { el.textContent = ""; }, 3500); } }
+function tags(st) { return st.map(s => '<span class="tag ' + s + '">' + s + "</span>").join(""); }
+function render() {
+  const app = $("app");
+  if (S.view === "menu") {
+    app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>Court Timer</h1><p class="sub">Pick today\'s session. Cues play through your AirPods.</p></header>' +
+      '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + tags(p.status) + p.with + '</span></span><span class="mins">' + totalMin(k) + '′</span></button>'; }).join("") + "</div>" +
+      '<p class="note">Before you start: Low Power Mode off, AirPods in, phone in the shade. Keep this page open; the screen stays on.</p>';
+    app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
+  } else if (S.view === "overview") {
+    const p = plan(); let t = 0;
+    app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · ' + totalMin(S.key) + ' min · ' + p.with + '</div><h1>' + p.name + '</h1></header>' +
+      '<ol class="blocks">' + p.blocks.map(b => { const s = '<li><span class="t">' + fmt(t * 60) + '</span><span><span class="bn">' + b.name + ' · ' + b.min + ' min</span><br><span class="bd">' + b.desc + '</span></span></li>'; t += b.min; return s; }).join("") + "</ol>" +
+      '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="go">Start session</button></div>' +
+      '<div class="status" id="status"></div>';
+    $("back").onclick = () => { S.view = "menu"; render(); };
+    $("go").onclick = start;
+    renderStatus();
+  } else if (S.view === "live") {
+    app.innerHTML = '<div class="live">' +
+      '<div class="row" style="justify-content:space-between;align-items:center"><span class="eyebrow">Session ' + S.key + ' · Block <span id="bi"></span></span><span class="rec" id="rec"><i></i><span id="rect"></span></span></div>' +
+      '<div><div class="blockname" id="bn"></div><div class="blockdesc" id="bd"></div></div>' +
+      '<div class="clock" id="clock">0:00</div>' +
+      '<div class="bar"><i id="bar"></i></div>' +
+      '<div class="next" id="next"></div>' +
+      '<div class="total">Session <span id="tot">00:00</span></div>' +
+      '<div class="row"><button class="btn" id="prev">◀ Block</button><button class="btn" id="pp">Pause</button><button class="btn" id="nxt">Block ▶</button></div>' +
+      '<div class="row"><button class="btn" id="mk">Mark moment</button><button class="btn ghost" id="end">End session</button></div>' +
+      '<div class="toast" id="toast"></div><div class="status" id="status"></div></div>';
+    $("prev").onclick = () => skip(-1); $("nxt").onclick = () => skip(1); $("pp").onclick = pause; $("mk").onclick = mark;
+    $("end").onclick = () => { const b = $("end"); if (b.dataset.armed) finish(false); else { b.dataset.armed = "1"; b.textContent = "Tap again to end"; setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = "End session"; } }, 3000); } };
+    renderLive(); renderStatus();
+  } else if (S.view === "done") {
+    const hasAudio = S.chunks.length > 0;
+    app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · ' + fmtH(sessionSecs()) + '</div><h1>Session done</h1><p class="sub">Save the log' + (hasAudio ? ' and the recording' : '') + ' before you leave this screen.</p></header>' +
+      '<pre class="log" id="log"></pre>' +
+      '<div class="row">' + (hasAudio ? '<button class="btn primary" id="sa">Save recording</button>' : '') + '<button class="btn' + (hasAudio ? '' : ' primary') + '" id="sl">Save log</button><button class="btn" id="cl">Copy log</button></div>' +
+      '<div class="toast" id="toast"></div>' +
+      (hasAudio ? '' : '<p class="note">No recording on this page. Tip: start Voice Memos before the session and use these timestamps to find each block.</p>') +
+      '<div class="row"><button class="btn ghost" id="home">Back to sessions</button></div>';
+    $("log").textContent = logText();
+    $("sl").onclick = () => saveFile("court-timer_" + stamp() + "_" + S.key + ".txt", logText());
+    $("cl").onclick = copyLog;
+    if (hasAudio) $("sa").onclick = () => { const ext = /webm/.test(S.recMime) ? "webm" : "mp4"; saveFile("court-timer_" + stamp() + "_" + S.key + "." + ext, new Blob(S.chunks, { type: S.recMime })); };
+    $("home").onclick = () => { S.view = "menu"; S.chunks = []; render(); };
+  }
+}
+function renderLive() {
+  if (S.view !== "live") return;
+  const p = plan(), b = p.blocks[S.i], left = b.min * 60 - blockSecs();
+  $("bi").textContent = (S.i + 1) + " of " + p.blocks.length;
+  $("bn").textContent = b.name; $("bd").textContent = b.desc;
+  $("clock").textContent = fmt(left); $("clock").classList.toggle("paused", !S.running);
+  $("bar").style.width = Math.min(100, 100 * blockSecs() / (b.min * 60)) + "%";
+  const nb = p.blocks[S.i + 1];
+  $("next").innerHTML = nb ? "Next: <b>" + nb.name + "</b> · " + nb.min + " min" : "Last block";
+  $("tot").textContent = fmtH(sessionSecs());
+  $("pp").textContent = S.running ? "Pause" : "Resume";
+  const r = $("rec"); r.classList.toggle("on", S.recState === "on" && S.running);
+  $("rect").textContent = S.recState === "on" ? (S.running ? "Recording" : "Rec paused") : "No recording";
+}
+function renderStatus() {
+  const el = $("status"); if (!el) return;
+  const wl = "wakeLock" in navigator;
+  const screen = S.wake ? '<span class="ok">Screen stays on</span>' : (wl ? (S.running ? '<span class="warn">Screen lock not held. Tap the screen once.</span>' : 'Screen will stay on once the session starts') : '<span class="warn">This browser cannot keep the screen on. Set Auto-Lock to Never for the session.</span>');
+  const rec = S.recState === "on" ? '<span class="ok">Recording</span>' : (S.recState === "off" ? "Recording starts with the session if this page may use the microphone" : '<span class="warn">No microphone on this page. Use Voice Memos alongside.</span>');
+  el.innerHTML = "<div><b>Screen</b> · " + screen + "</div><div><b>Audio</b> · " + rec + "</div>";
+}
+
+/* ---------------- Boot ---------------- */
+render();
+(async () => { try { if (window.claude && claude.use) S.downloads = await claude.use("downloads"); } catch (e) { S.downloads = null; } })();
+</script>
+</body></html>
