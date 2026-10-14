@@ -175,6 +175,9 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .docnav button[disabled] { opacity: .35; }
 @media (prefers-reduced-motion: reduce) { .docnav { transition: none; } }
 
+.btn.topic { flex: 0 0 auto; min-height: 40px; padding: 8px 14px; font-size: .88rem; font-weight: 500; }
+.btn.topic.on { border-color: var(--ball); color: var(--ball); }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -442,10 +445,32 @@ async function copyLog() {
   catch (e) { const r = document.createRange(); r.selectNodeContents($("log")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Select and copy the log."); }
 }
 
+/* ---------------- Insights: voice notes for the next coaching review ---------------- */
+async function startInsight() {
+  S.sid = "i" + now(); S.key = "insight"; S.log = [];
+  await lockScreen(); await startRecording();
+  if (S.recState !== "on") { unlockScreen(); toast("The microphone isn't available. Allow it in Settings → Safari → Microphone."); return; }
+  S.insRec = true; S.insStart = now(); S.sessionStart = S.insStart; S.running = true;
+  await putSession(insightRecord(false)); render();
+  clearInterval(S.itick); S.itick = setInterval(() => { const c = $("iclock"); if (c) c.textContent = fmt((now() - S.insStart) / 1000); }, 500);
+}
+function insightRecord(done) {
+  const d = new Date(S.insStart);
+  return { id: S.sid, type: "insight", key: "insight", name: "Insight", start: S.insStart, secs: Math.round((now() - S.insStart) / 1000), mime: S.recMime, done,
+    log: "TCA · Insight (not a training session)\nRecorded " + d.toLocaleString("en-GB") + "\nTopic: " + (S.insTopic || "not set") + "\nLength: " + fmtH((now() - S.insStart) / 1000) + "\n", exported: false, uploaded: 0 };
+}
+async function stopInsight() {
+  clearInterval(S.itick); const b = $("irec"); if (b) { b.disabled = true; b.textContent = "Saving…"; }
+  await stopRecording(); unlockScreen(); S.running = false; S.insRec = false;
+  const r = insightRecord(true); await putSession(r); S.sessionStart = 0;
+  S.view = "menu"; render(); toast("Insight saved" + (driveUrl() ? ". Uploading to Drive…" : "."));
+  if (driveUrl()) { const ok = await uploadSession(r); toast(ok ? "Insight is in your Drive." : "Upload failed. It retries next time you open the app."); }
+}
+
 /* ---------------- Activity (from sessions saved on this phone) ---------------- */
 const WEEK_GOAL_H = 4;
 const MIN_SECS = 15 * 60;   // shorter sessions are kept, but don't count
-const counts = r => r.done && (r.secs || 0) >= MIN_SECS;
+const counts = r => r.type !== "insight" && r.done && (r.secs || 0) >= MIN_SECS;
 function weekStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
 async function activity() {
   const all = await allSessions(), l = all.filter(counts), w0 = weekStart(Date.now()), W = 7 * 864e5, weeks = [0, 0, 0, 0, 0, 0];
@@ -486,12 +511,13 @@ function render() {
     app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>TCA</h1><p class="sub">Tennis Coach Agent</p></header>' +
       '<div class="sec"><div class="eyebrow">Dashboard</div><button class="card" id="dash" aria-label="Open dashboard"><div class="tiles" id="tiles">' +
         '<div class="tile"><div class="k">Progress</div><div class="v">–</div><div class="s">loading</div></div><div class="tile"><div class="k">This week</div><div class="v">–</div></div><div class="tile"><div class="k">6 weeks</div><div class="v">–</div></div></div></button></div>' +
-      '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary" id="train">Start a training session</button></div>' +
+      '<div class="sec"><div class="eyebrow">Training</div><div class="row"><button class="btn primary" id="train">Start a training session</button><button class="btn" id="ins">Record an insight</button></div></div>' +
       '<div class="sec"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
       '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>' +
       '<div class="row" style="align-items:center;justify-content:space-between"><span class="dv-meta">Version ' + APP_VERSION + '</span><button class="btn ghost" id="reload" style="flex:0 0 auto;min-height:44px;padding:10px 16px">Reload app</button></div>';
     $("dash").onclick = () => { S.view = "dashboard"; render(); };
     $("train").onclick = () => { S.view = "training"; render(); };
+    $("ins").onclick = () => { S.view = "insight"; S.insTopic = ""; render(); };
     $("saved").onclick = () => { S.view = "saved"; render(); };
     $("reload").onclick = hardReload;
     app.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => { S.doc = b.dataset.doc; S.view = "doc"; render(); });
@@ -503,6 +529,18 @@ function render() {
         '<div class="tile"><div class="k">6 weeks</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div><div class="s">avg ' + fmtHM(a.avg6) + ' h/week</div>' + spark(a.weeks) + '</div>';
       const b = $("saved"), nx = a.all.filter(r => driveUrl() ? !r.uploaded : !r.exported).length; if (b) b.textContent = "Saved sessions" + (a.all.length ? " · " + a.all.length + (nx ? " (" + nx + (driveUrl() ? " not uploaded)" : " not exported)") : "") : "");
     });
+  } else if (S.view === "insight") {
+    const TOPICS = ["Match Card", "Roadmap", "Weekly Schedule", "Player Profile", "Technique", "Other"];
+    const rec = S.insRec;
+    app.innerHTML = '<header><div class="eyebrow">Insight</div><h1>Record an insight</h1><p class="sub">A voice note for your next coaching review, e.g. a change to the Match Card from a talk with your coach. It never counts as training.</p></header>' +
+      '<div class="sec"><div class="eyebrow">About (optional)</div><div class="row" id="topics">' + TOPICS.map(t => '<button class="btn ghost topic' + (S.insTopic === t ? " on" : "") + '" data-t="' + t + '"' + (rec ? " disabled" : "") + '>' + t + '</button>').join("") + '</div></div>' +
+      '<div class="clock" id="iclock" style="text-align:center;color:' + (rec ? "var(--ball)" : "var(--muted)") + '">' + (rec ? fmt((now() - S.insStart) / 1000) : "0:00") + '</div>' +
+      '<div class="row"><button class="btn primary" id="irec">' + (rec ? "Stop and save" : "Start recording") + '</button></div>' +
+      '<div class="toast" id="toast"></div><div class="status" id="istat"></div>' +
+      (rec ? "" : '<div class="row"><button class="btn ghost" id="home">Back</button></div>');
+    app.querySelectorAll(".topic").forEach(b => b.onclick = () => { S.insTopic = S.insTopic === b.dataset.t ? "" : b.dataset.t; render(); });
+    if ($("home")) $("home").onclick = () => { S.view = "menu"; render(); };
+    $("irec").onclick = rec ? stopInsight : startInsight;
   } else if (S.view === "training") {
     app.innerHTML = '<header><div class="eyebrow">Training</div><h1>Pick a session</h1><p class="sub">Cues play through your AirPods.</p></header>' +
       '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + p.with + '</span><br><span class="meta focus ' + p.status[0] + '">' + p.focus + '</span></span></button>'; }).join("") + "</div>" +
@@ -542,7 +580,7 @@ function render() {
       if (!l.length) { list.innerHTML = '<p class="note">No sessions yet.</p>'; $("exn").disabled = true; return; }
       $("exn").onclick = () => exportSessions(l.filter(r => !r.exported));
       $("exn").disabled = !l.some(r => !r.exported);
-      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter">' + r.key + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + ((r.secs || 0) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + ((r.secs || 0) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
       list.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => exportSessions(l.filter(r => r.id === b.dataset.ex)));
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
     });
@@ -606,14 +644,14 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-8";
+const APP_VERSION = "2026-10-14-9";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
   location.replace(location.pathname + "?r=" + Date.now());
 }
 async function checkUpdate() {
-  if (S.view === "live" || S.view === "overview" || S.view === "done") return;
+  if (S.view === "live" || S.view === "overview" || S.view === "done" || S.insRec) return;
   try {
     const v = (await (await fetch("version.txt?" + Date.now(), { cache: "no-store" })).text()).trim();
     if (!v || v === APP_VERSION) return;
@@ -638,7 +676,7 @@ addEventListener("touchstart", e => { sw = e.touches.length === 1 ? { x: e.touch
 addEventListener("touchend", e => {
   if (!sw) return; const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, dt = Date.now() - sw.t; sw = null;
   if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.5 || dt > 700) return;
-  if (S.view === "menu" || S.view === "live") return;   // never leave a running session by accident
+  if (S.view === "menu" || S.view === "live" || S.insRec) return;   // never leave a running session by accident
   if (S.view === "done") S.chunks = [];
   S.view = "menu"; render(); scrollTo(0, 0);
 }, { passive: true });
