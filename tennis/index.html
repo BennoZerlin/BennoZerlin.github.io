@@ -84,6 +84,25 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 @keyframes pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .rec.on i { animation: none; } }
 
+/* Home */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; text-align: left; width: 100%; display: grid; gap: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tile .k { font-size: .72rem; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
+.tile .v { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile .s { font-size: .75rem; color: var(--muted); }
+.spark { display: flex; align-items: flex-end; gap: 3px; height: 28px; margin-top: 4px; }
+.spark i { flex: 1; background: var(--line); border-radius: 2px 2px 0 0; min-height: 2px; }
+.spark i.cur { background: var(--ball); }
+.sec { display: grid; gap: 10px; }
+.sec > .eyebrow { margin-bottom: -2px; }
+.doc { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; text-align: left; width: 100%; }
+.doc .name { font-weight: 600; } .doc .meta { color: var(--muted); font-size: .82rem; }
+.doc .go { color: var(--muted); font-size: 1.3rem; }
+.goalrow { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.goalrow .lv { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; }
+.pages img { width: 100%; display: block; border-radius: 6px; background: #fff; margin-bottom: 10px; }
+@media (max-width: 380px) { .tiles { grid-template-columns: 1fr 1fr; } .tiles .tile:last-child { grid-column: 1 / -1; } }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -351,19 +370,83 @@ async function copyLog() {
   catch (e) { const r = document.createRange(); r.selectNodeContents($("log")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Select and copy the log."); }
 }
 
+/* ---------------- Activity (from sessions saved on this phone) ---------------- */
+const WEEK_GOAL_H = 4;
+function weekStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
+async function activity() {
+  const l = await allSessions(), w0 = weekStart(Date.now()), W = 7 * 864e5, weeks = [0, 0, 0, 0, 0, 0];
+  l.forEach(r => { const i = Math.round((w0 - weekStart(r.start)) / W); if (i >= 0 && i < 6) weeks[5 - i] += r.secs || 0; });
+  const h = weeks.map(x => x / 3600), recent = (h[3] + h[4] + h[5]) / 3, before = (h[0] + h[1] + h[2]) / 3;
+  const byKey = k => l.filter(r => r.done && k.includes(r.key)).length;
+  return { sessions: l, weeks: h, thisWeek: h[5], avg6: h.reduce((a, b) => a + b, 0) / 6, trend: l.length < 4 ? "Too early" : (recent > before * 1.15 ? "Rising" : recent < before * 0.85 ? "Falling" : "Steady"),
+           serveN: byKey("CD"), depthN: byKey("AB"), steerN: byKey("B") };
+}
+const fmtHM = h => { const m = Math.round(h * 60); return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0"); };
+function spark(h) { const mx = Math.max(WEEK_GOAL_H, ...h); return '<div class="spark" aria-hidden="true">' + h.map((x, i) => '<i class="' + (i === 5 ? "cur" : "") + '" style="height:' + Math.max(7, Math.round(100 * x / mx)) + '%"></i>').join("") + "</div>"; }
+
+/* ---------------- Documents (encrypted in the app, opened with your private key) ---------------- */
+const DOCS = [
+  { id: "match-card", name: "Match Card", meta: "Game plan, between points, player types" },
+  { id: "roadmap", name: "Road to Competitive Tennis", meta: "Journey tracker, weekly schedule, match card" },
+  { id: "profile", name: "Player Profile", meta: "DTB assessment and priorities" } ];
+const docCache = {};
+function docKey() { try { return new URL(driveUrl()).searchParams.get("k") || ""; } catch (e) { return ""; } }
+async function openDoc(id) {
+  if (docCache[id]) return docCache[id];
+  const k = docKey(); if (!k) throw new Error("nokey");
+  const buf = new Uint8Array(await (await fetch("docs/" + id + ".enc", { cache: "no-cache" })).arrayBuffer());
+  const salt = buf.slice(4, 20), iv = buf.slice(20, 32), ct = buf.slice(32);
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(k), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 150000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const doc = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct)));
+  return (docCache[id] = doc);
+}
+
 /* ---------------- Rendering ---------------- */
 function toast(t) { const el = $("toast"); if (el) { el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => { el.textContent = ""; }, 3500); } }
 function tags(st) { return st.map(s => '<span class="tag ' + s + '">' + s + "</span>").join(""); }
 function render() {
   const app = $("app");
   if (S.view === "menu") {
-    app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>TCA</h1><p class="sub">Pick today\'s session. Cues play through your AirPods.</p></header>' +
-      '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + tags(p.status) + p.with + '</span></span><span class="mins">' + totalMin(k) + '′</span></button>'; }).join("") + "</div>" +
-      '<button class="btn ghost" id="saved" style="width:100%;margin-top:16px">Saved sessions</button>' +
-      '<p class="note">Before you start: Low Power Mode off, AirPods in, phone in the shade. Keep this page open; the screen stays on. Every session is saved on this phone automatically.</p>';
-    app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
+    app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>TCA</h1><p class="sub">Tennis Coach Agent</p></header>' +
+      '<div class="sec"><div class="eyebrow">Dashboard</div><button class="card" id="dash" aria-label="Open dashboard"><div class="tiles" id="tiles">' +
+        '<div class="tile"><div class="k">Progress</div><div class="v">–</div><div class="s">loading</div></div><div class="tile"><div class="k">This week</div><div class="v">–</div></div><div class="tile"><div class="k">6 weeks</div><div class="v">–</div></div></div></button></div>' +
+      '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary" id="train">Start a training session</button></div>' +
+      '<div class="sec"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
+      '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>';
+    $("dash").onclick = () => { S.view = "dashboard"; render(); };
+    $("train").onclick = () => { S.view = "training"; render(); };
     $("saved").onclick = () => { S.view = "saved"; render(); };
-    allSessions().then(l => { const n = l.filter(r => !r.exported).length; const b = $("saved"); if (b) b.textContent = "Saved sessions" + (l.length ? " · " + l.length + (n ? " (" + n + " not exported)" : "") : ""); });
+    app.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => { S.doc = b.dataset.doc; S.view = "doc"; render(); });
+    activity().then(a => {
+      const t = $("tiles"); if (!t) return;
+      const n = a.sessions.filter(r => r.done).length;
+      t.innerHTML = '<div class="tile"><div class="k">Progress</div><div class="v">' + (n < 6 ? n + "/6" : "–") + '</div><div class="s">' + (n < 6 ? "sessions until first read" : "awaiting analysis") + '</div></div>' +
+        '<div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div><div class="bar"><i style="width:' + Math.min(100, 100 * a.thisWeek / WEEK_GOAL_H) + '%;background:var(--ball)"></i></div></div>' +
+        '<div class="tile"><div class="k">6 weeks</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div><div class="s">avg ' + fmtHM(a.avg6) + ' h/week</div>' + spark(a.weeks) + '</div>';
+      const b = $("saved"), nx = a.sessions.filter(r => driveUrl() ? !r.uploaded : !r.exported).length; if (b) b.textContent = "Saved sessions" + (a.sessions.length ? " · " + a.sessions.length + (nx ? " (" + nx + (driveUrl() ? " not uploaded)" : " not exported)") : "") : "");
+    });
+  } else if (S.view === "training") {
+    app.innerHTML = '<header><div class="eyebrow">Training</div><h1>Pick a session</h1><p class="sub">Cues play through your AirPods.</p></header>' +
+      '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + tags(p.status) + p.with + '</span></span><span class="mins">' + totalMin(k) + '′</span></button>'; }).join("") + "</div>" +
+      '<p class="note">Before you start: Low Power Mode off, AirPods in, phone in the shade. The screen stays on, and every session is saved and uploaded automatically.</p>' +
+      '<div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
+    $("home").onclick = () => { S.view = "menu"; render(); };
+  } else if (S.view === "dashboard") {
+    app.innerHTML = '<header><div class="eyebrow">Dashboard</div><h1>Progress</h1><p class="sub">Levels and trends appear once your recordings are analysed. A level needs 5 sessions, a trend 6.</p></header><div id="db" class="card">Loading…</div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    $("home").onclick = () => { S.view = "menu"; render(); };
+    activity().then(a => {
+      const g = (name, n, need, test) => '<div class="goalrow"><span><b>' + name + '</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + test + '</span></span><span class="lv">' + (n < need ? "–" : "–") + '</span><span class="s" style="color:var(--muted);font-size:.8rem;grid-column:1/-1">' + n + ' session' + (n === 1 ? "" : "s") + ' so far · ' + (n < need ? (need - n) + " more until first level" : "waiting for analysis") + '</span></div>';
+      $("db").innerHTML = '<div class="tiles"><div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div></div><div class="tile"><div class="k">6-week avg</div><div class="v">' + fmtHM(a.avg6) + '</div><div class="s">h per week</div></div><div class="tile"><div class="k">Activity</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div>' + spark(a.weeks) + '</div></div>' +
+        g("Serve", a.serveN, 5, "Graduation: kick 8/10, first serve 50%") + g("Depth", a.depthN, 5, "Time to 20 and longest rally") + g("Steering", a.steerN, 5, "Graduation: steering test 8/10");
+    });
+  } else if (S.view === "doc") {
+    const d = DOCS.find(x => x.id === S.doc);
+    app.innerHTML = '<header><div class="eyebrow">Document</div><h1 style="font-size:1.6rem">' + d.name + '</h1><p class="sub">Pinch to zoom.</p></header><div class="pages" id="pages"><p class="sub">Opening…</p></div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    $("home").onclick = () => { S.view = "menu"; render(); };
+    openDoc(d.id).then(doc => { const el = $("pages"); if (el) el.innerHTML = doc.pages.map((p, i) => '<img alt="' + d.name + ' page ' + (i + 1) + '" src="data:image/jpeg;base64,' + p + '">').join(""); })
+      .catch(e => { const el = $("pages"); if (el) el.innerHTML = '<p class="sub">' + (e.message === "nokey" ? "Connect Google Drive under Saved sessions first. The documents open with the same private key." : "Could not open the document. Check your connection and try again.") + '</p>'; });
   } else if (S.view === "saved") {
     app.innerHTML = '<header><div class="eyebrow">On this phone</div><h1>Saved sessions</h1><p class="sub">Saved automatically. Export sends recording and log to Files in one go.</p></header>' +
       '<div class="status"><div><b>Google Drive</b> · ' + (driveUrl() ? '<span class="ok">Connected. Sessions upload automatically.</span>' : 'Not connected') + '</div>' +
@@ -389,7 +472,7 @@ function render() {
       '<ol class="blocks">' + p.blocks.map(b => { const s = '<li><span class="t">' + fmt(t * 60) + '</span><span><span class="bn">' + b.name + ' · ' + b.min + ' min</span><br><span class="bd">' + b.desc + '</span></span></li>'; t += b.min; return s; }).join("") + "</ol>" +
       '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="go">Start session</button></div>' +
       '<div class="status" id="status"></div>';
-    $("back").onclick = () => { S.view = "menu"; render(); };
+    $("back").onclick = () => { S.view = "training"; render(); };
     $("go").onclick = start;
     renderStatus();
   } else if (S.view === "live") {
