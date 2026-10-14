@@ -40,13 +40,14 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 /* Session menu */
 .sessions { display: grid; gap: 10px; }
 .sess {
-  display: grid; grid-template-columns: 52px 1fr auto; align-items: center; gap: 14px;
+  display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: center; gap: 14px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   padding: 14px 16px; text-align: left; width: 100%;
 }
 .sess .letter { font-family: var(--font-display); font-size: 2.4rem; font-weight: 700; line-height: 1; text-align: center; }
 .sess .name { font-weight: 600; }
 .sess .meta { color: var(--muted); font-size: .85rem; }
+.sess .focus.develop, .sub.focus.develop { color: var(--develop); } .sess .focus.stabilize, .sub.focus.stabilize { color: var(--stabilize); } .sess .focus.compete { color: var(--compete); }
 .sess .mins { font-family: var(--font-display); font-size: 1.4rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tag { display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; margin-right: 4px; background: var(--line); }
 .tag.develop { color: var(--develop); } .tag.stabilize { color: var(--stabilize); } .tag.compete { color: var(--compete); }
@@ -167,6 +168,13 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .pf-c { color: var(--muted); font-size: .9rem; }
 .pf-syn { background: var(--panel); border-left: 4px solid var(--ball); padding: 12px 14px; font-size: .93rem; }
 
+/* Document navigation: appears when scrolling up */
+.docnav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 0; background: var(--bg); border-bottom: 1px solid var(--line); transform: translateY(-120%); opacity: 0; transition: transform .2s, opacity .2s; margin-top: -12px; pointer-events: none; }
+.docnav.show { transform: none; opacity: 1; pointer-events: auto; }
+.docnav button { min-height: 48px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-weight: 600; font-size: .9rem; padding: 6px; }
+.docnav button[disabled] { opacity: .35; }
+@media (prefers-reduced-motion: reduce) { .docnav { transition: none; } }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -177,21 +185,21 @@ pre.log { background: var(--panel); border: 1px solid var(--line); border-radius
 <script>
 /* ---------------- Plan: Phase 1, valid Oct 2026 – end Q1 2027 ---------------- */
 const PLAN = {
-  A: { name: "Coach", status: ["develop"], with: "Coach · Engine",
+  A: { name: "Coach focus training", status: ["develop"], with: "Coach · 60 min · once a week", focus: "Develop · current focus: engine",
        blocks: [ { name: "Coach session", min: 60, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", cue: "Coach session. Sixty minutes. Focus engine: loose wrist, let the racket swing." } ] },
-  B: { name: "Stabilize and compete", status: ["stabilize", "compete"], with: "Wife or teammate",
+  B: { name: "Practice with F&F", status: ["stabilize", "compete"], with: "Friends and family · 60 min · every week", focus: "Stabilize + Compete · current focus: depth and steering",
        blocks: [
          { name: "Connect", min: 10, desc: "Mini-tennis, then slow deep rally. A few balls with the three-finger grip; wrist hold between balls.", cue: "Connect. Ten minutes. Slow arm, clean contact, every ball past the service line." },
          { name: "Deep consistency", min: 10, desc: "Forehand first, then bring in the backhand. Game: 50 or 100 ball rally, or deep middle first to 20.", cue: "Deep consistency. Ten minutes. Forehand first, then the backhand." },
          { name: "Direction training", min: 10, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line. Plus the steering test, once or twice: rally down your forehand line, two balls down the line, the third crosscourt from the forehand corner. Counts past the service line and inside the leftmost 2 m. 10 tries, say the count.", cue: "Direction training. Ten minutes. Find the cross angle. Steering test once or twice: two down the line, third one crosscourt. Say the count." },
          { name: "Direction under pressure", min: 10, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", cue: "Direction under pressure. Ten minutes. Deep crosscourt when you are pushed wide." },
          { name: "Match play", min: 20, desc: "Tiebreaks or match tiebreaks with the Match Card. Deep ball wins count double.", cue: "Match play. Twenty minutes. Three deep balls win the point." } ] },
-  C: { name: "Serve basket", status: ["stabilize"], with: "Alone, on court",
+  C: { name: "Serve session", status: ["stabilize"], with: "Alone, on court · 60 min · every week", focus: "Stabilize · current focus: kick and flat T",
        blocks: [
          { name: "Set-up and warm-up", min: 5, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", cue: "Set up and warm up. Five minutes." },
          { name: "Target practice", min: 20, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", cue: "Target practice. Twenty minutes. Ten serves per target. From the knees, core through the ball." },
          { name: "Target sequence", min: 35, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating.", cue: "Target sequence. Thirty five minutes. Flat down the T twice, kick wide twice, then switch sides." } ] },
-  D: { name: "Wall", status: ["develop", "stabilize"], with: "Alone, tennis wall",
+  D: { name: "Tennis wall session", status: ["develop", "stabilize"], with: "Alone · 60 min · every second week", focus: "Develop + Stabilize · current focus: engine and serve",
        blocks: [
          { name: "Loosen", min: 5, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", cue: "Loosen. Five minutes. Grip pressure three out of ten. Listen for the swoosh." },
          { name: "Drop-feed whip", min: 15, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", cue: "Drop feed whip. Fifteen minutes. Three finger grip, early preparation, breathe out through contact." },
@@ -450,10 +458,10 @@ function spark(h) { const mx = Math.max(WEEK_GOAL_H, ...h); return '<div class="
 
 /* ---------------- Documents (encrypted in the app, opened with your private key) ---------------- */
 const DOCS = [
-  { id: "match-card", name: "Match Card", meta: "Game plan, between points, player types" },
-  { id: "roadmap", name: "Road to Competitive Tennis", meta: "Seven blocks, levels and graduation tests" },
-  { id: "schedule", name: "Weekly Schedule", meta: "Phase 1 · sessions A to D and their plans" },
-  { id: "profile", name: "Player Profile", meta: "DTB assessment and priorities" } ];
+  { id: "match-card", short: "Match Card", name: "Match Card", meta: "Game plan, between points, player types" },
+  { id: "roadmap", short: "Roadmap", name: "Road to Competitive Tennis", meta: "Seven blocks, levels and graduation tests" },
+  { id: "schedule", short: "Schedule", name: "Weekly Schedule", meta: "Phase 1 · sessions A to D and their plans" },
+  { id: "profile", short: "Profile", name: "Player Profile", meta: "DTB assessment and priorities" } ];
 const docCache = {};
 function docKey() { try { return new URL(driveUrl()).searchParams.get("k") || ""; } catch (e) { return ""; } }
 async function openDoc(id) {
@@ -495,7 +503,7 @@ function render() {
     });
   } else if (S.view === "training") {
     app.innerHTML = '<header><div class="eyebrow">Training</div><h1>Pick a session</h1><p class="sub">Cues play through your AirPods.</p></header>' +
-      '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + tags(p.status) + p.with + '</span></span><span class="mins">' + totalMin(k) + '′</span></button>'; }).join("") + "</div>" +
+      '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + p.with + '</span><br><span class="meta focus ' + p.status[0] + '">' + p.focus + '</span></span></button>'; }).join("") + "</div>" +
       '<p class="note">Before you start: Low Power Mode off, AirPods in, phone in the shade. The screen stays on, and every session is saved and uploaded automatically.</p>' +
       '<div class="row"><button class="btn ghost" id="home">Back</button></div>';
     app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
@@ -509,9 +517,12 @@ function render() {
         g("Serve", a.serveN, 5, "Graduation: kick 8/10, first serve 50%") + g("Depth", a.depthN, 5, "Time to 20 and longest rally") + g("Steering", a.steerN, 5, "Graduation: steering test 8/10");
     });
   } else if (S.view === "doc") {
-    const d = DOCS.find(x => x.id === S.doc);
-    app.innerHTML = '<header><div class="eyebrow">Document</div><h1 style="font-size:1.6rem">' + d.name + '</h1></header><div class="pages" id="pages"><p class="sub">Opening…</p></div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    const d = DOCS.find(x => x.id === S.doc), di = DOCS.indexOf(d);
+    app.innerHTML = '<nav class="docnav" id="docnav" aria-label="Documents"><button id="dprev"' + (di ? "" : " disabled") + '>‹ ' + (di ? DOCS[di - 1].short : "Previous") + '</button><button id="dhome">Home</button><button id="dnext"' + (di < DOCS.length - 1 ? "" : " disabled") + '>' + (di < DOCS.length - 1 ? DOCS[di + 1].short : "Next") + ' ›</button></nav><header><div class="eyebrow">Document</div><h1 style="font-size:1.6rem">' + d.name + '</h1></header><div class="pages" id="pages"><p class="sub">Opening…</p></div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
     $("home").onclick = () => { S.view = "menu"; render(); };
+    $("dhome").onclick = () => { S.view = "menu"; render(); scrollTo(0, 0); };
+    $("dprev").onclick = () => { if (di) { S.doc = DOCS[di - 1].id; render(); scrollTo(0, 0); } };
+    $("dnext").onclick = () => { if (di < DOCS.length - 1) { S.doc = DOCS[di + 1].id; render(); scrollTo(0, 0); } };
     openDoc(d.id).then(doc => { const el = $("pages"); if (!el) return; if (doc.html) { el.className = "docv"; el.innerHTML = doc.html; return; } el.innerHTML = '<p class="sub">Pinch to zoom.</p>' + doc.pages.map((p, i) => '<img alt="' + d.name + ' page ' + (i + 1) + '" src="data:image/jpeg;base64,' + p + '">').join(""); })
       .catch(e => { const el = $("pages"); if (el) el.innerHTML = '<p class="sub">' + (e.message === "nokey" ? "Connect Google Drive under Saved sessions first. The documents open with the same private key." : "Could not open the document. Check your connection and try again.") + '</p>'; });
   } else if (S.view === "saved") {
@@ -535,7 +546,7 @@ function render() {
     });
   } else if (S.view === "overview") {
     const p = plan(); let t = 0;
-    app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · ' + totalMin(S.key) + ' min · ' + p.with + '</div><h1>' + p.name + '</h1></header>' +
+    app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · ' + p.with + '</div><h1>' + p.name + '</h1><p class="sub focus ' + p.status[0] + '">' + p.focus + '</p></header>' +
       '<ol class="blocks">' + p.blocks.map(b => { const s = '<li><span class="t">' + fmt(t * 60) + '</span><span><span class="bn">' + b.name + ' · ' + b.min + ' min</span><br><span class="bd">' + b.desc + '</span></span></li>'; t += b.min; return s; }).join("") + "</ol>" +
       '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="go">Start session</button></div>' +
       '<div class="status" id="status"></div>';
@@ -593,7 +604,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-6";
+const APP_VERSION = "2026-10-14-7";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
@@ -612,6 +623,23 @@ async function checkUpdate() {
   } catch (e) {}
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
+
+/* ---------------- Gestures and scrolling ---------------- */
+let lastY = 0;
+addEventListener("scroll", () => {
+  const n = $("docnav"), y = scrollY;
+  if (n) { if (y <= 80 || y > lastY + 2) n.classList.remove("show"); else if (y < lastY - 2) n.classList.add("show"); }
+  lastY = y;
+}, { passive: true });
+let sw = null;
+addEventListener("touchstart", e => { sw = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() } : null; }, { passive: true });
+addEventListener("touchend", e => {
+  if (!sw) return; const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, dt = Date.now() - sw.t; sw = null;
+  if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.5 || dt > 700) return;
+  if (S.view === "menu" || S.view === "live") return;   // never leave a running session by accident
+  if (S.view === "done") S.chunks = [];
+  S.view = "menu"; render(); scrollTo(0, 0);
+}, { passive: true });
 
 /* ---------------- Boot ---------------- */
 render();
