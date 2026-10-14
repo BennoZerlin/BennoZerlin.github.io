@@ -103,6 +103,47 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .pages img { width: 100%; display: block; border-radius: 6px; background: #fff; margin-bottom: 10px; }
 @media (max-width: 380px) { .tiles { grid-template-columns: 1fr 1fr; } .tiles .tile:last-child { grid-column: 1 / -1; } }
 
+/* Documents formatted for the phone */
+.docv { display: grid; gap: 12px; font-size: 1rem; line-height: 1.45; }
+.docv p { margin: 0; }
+.dv-meta { color: var(--muted); font-size: .85rem; }
+.dv-hero { background: var(--panel); border-left: 4px solid var(--ball); padding: 14px 16px; border-radius: 0; display: grid; gap: 4px; }
+.dv-big { font-family: var(--font-display); font-weight: 700; font-size: 1.9rem; line-height: 1.05; text-transform: uppercase; color: var(--ball); text-wrap: balance; }
+.dv-h { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 0; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.dv-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.dv-tile { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--clay); border-radius: 0 10px 10px 0; padding: 12px 14px; display: grid; gap: 3px; font-size: .92rem; color: var(--muted); }
+.dv-k { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: var(--muted); margin-top: 6px; }
+.dv-tile .dv-k { margin-top: 0; color: var(--clay); }
+.dv-strong { font-weight: 600; color: var(--fg); font-size: 1.02rem; }
+.dv-strong2 { font-weight: 600; }
+.dv-between { text-align: center; font-style: italic; color: var(--ball); padding: 6px 4px; }
+.dv-between b { font-style: normal; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.dv-list { display: grid; }
+.dv-li { display: grid; grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.dv-chain { display: flex; flex-wrap: wrap; gap: 6px; }
+.dv-chain span { font-size: .78rem; font-weight: 600; padding: 4px 9px; border-radius: 999px; background: var(--line); color: var(--muted); }
+.dv-chain .develop { color: var(--develop); } .dv-chain .stabilize { color: var(--stabilize); } .dv-chain .compete { color: var(--compete); }
+.chip { display: inline-block; font-size: .68rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); justify-self: start; }
+.chip.develop { color: var(--develop); } .chip.stabilize { color: var(--stabilize); } .chip.compete { color: var(--compete); }
+.dv-blocks { display: grid; gap: 10px; }
+.dv-block { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 0 12px 12px 0; padding: 12px 14px; display: grid; gap: 3px; }
+.dv-block.develop { border-left-color: var(--develop); } .dv-block.stabilize { border-left-color: var(--stabilize); } .dv-block.compete { border-left-color: var(--compete); }
+.dv-bh { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dv-num { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; line-height: 1; min-width: 1.1em; }
+.dv-bn { font-weight: 600; font-size: 1.05rem; }
+.dv-when { color: var(--muted); font-size: .82rem; }
+.dv-dots { display: flex; gap: 5px; margin: 6px 0 2px; }
+.dv-dots i { font-style: normal; width: 30px; height: 26px; display: grid; place-items: center; border-radius: 6px; background: var(--line); color: var(--muted); font-size: .8rem; font-weight: 600; }
+.dv-dots i.goal { outline: 1.5px dashed var(--muted); outline-offset: -2px; }
+.dv-dots i.on { background: var(--fg); color: var(--bg); outline: none; }
+.dv-plan { display: grid; gap: 8px; }
+.dv-step { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 10px; background: var(--panel); border-left: 4px solid var(--line); padding: 10px 12px; font-size: .92rem; color: var(--muted); }
+.dv-step .dv-bn { color: var(--fg); font-size: 1rem; }
+.dv-step.develop { border-left-color: var(--develop); } .dv-step.stabilize { border-left-color: var(--stabilize); } .dv-step.compete { border-left-color: var(--compete); }
+.dv-min { white-space: nowrap; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: var(--fg); font-variant-numeric: tabular-nums; }
+.dv-goal { color: var(--fg); margin-top: 4px; font-weight: 500; }
+.dv-goal::before { content: "Goal · "; color: var(--muted); font-weight: 400; }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -387,7 +428,8 @@ function spark(h) { const mx = Math.max(WEEK_GOAL_H, ...h); return '<div class="
 /* ---------------- Documents (encrypted in the app, opened with your private key) ---------------- */
 const DOCS = [
   { id: "match-card", name: "Match Card", meta: "Game plan, between points, player types" },
-  { id: "roadmap", name: "Road to Competitive Tennis", meta: "Journey tracker, weekly schedule, match card" },
+  { id: "roadmap", name: "Road to Competitive Tennis", meta: "Seven blocks, levels and graduation tests" },
+  { id: "schedule", name: "Weekly Schedule", meta: "Phase 1 · sessions A to D and their plans" },
   { id: "profile", name: "Player Profile", meta: "DTB assessment and priorities" } ];
 const docCache = {};
 function docKey() { try { return new URL(driveUrl()).searchParams.get("k") || ""; } catch (e) { return ""; } }
@@ -443,9 +485,9 @@ function render() {
     });
   } else if (S.view === "doc") {
     const d = DOCS.find(x => x.id === S.doc);
-    app.innerHTML = '<header><div class="eyebrow">Document</div><h1 style="font-size:1.6rem">' + d.name + '</h1><p class="sub">Pinch to zoom.</p></header><div class="pages" id="pages"><p class="sub">Opening…</p></div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    app.innerHTML = '<header><div class="eyebrow">Document</div><h1 style="font-size:1.6rem">' + d.name + '</h1></header><div class="pages" id="pages"><p class="sub">Opening…</p></div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
     $("home").onclick = () => { S.view = "menu"; render(); };
-    openDoc(d.id).then(doc => { const el = $("pages"); if (el) el.innerHTML = doc.pages.map((p, i) => '<img alt="' + d.name + ' page ' + (i + 1) + '" src="data:image/jpeg;base64,' + p + '">').join(""); })
+    openDoc(d.id).then(doc => { const el = $("pages"); if (!el) return; if (doc.html) { el.className = "docv"; el.innerHTML = doc.html; return; } el.innerHTML = '<p class="sub">Pinch to zoom.</p>' + doc.pages.map((p, i) => '<img alt="' + d.name + ' page ' + (i + 1) + '" src="data:image/jpeg;base64,' + p + '">').join(""); })
       .catch(e => { const el = $("pages"); if (el) el.innerHTML = '<p class="sub">' + (e.message === "nokey" ? "Connect Google Drive under Saved sessions first. The documents open with the same private key." : "Could not open the document. Check your connection and try again.") + '</p>'; });
   } else if (S.view === "saved") {
     app.innerHTML = '<header><div class="eyebrow">On this phone</div><h1>Saved sessions</h1><p class="sub">Saved automatically. Export sends recording and log to Files in one go.</p></header>' +
