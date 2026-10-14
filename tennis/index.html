@@ -289,7 +289,7 @@ async function startRecording() {
     S.chunks = []; S.seg = 1; newRecorder(); S.recState = "on";
   } catch (e) { S.recState = "blocked"; }
 }
-function stopRec(r) { return new Promise(res => { if (!r || r.state === "inactive") return res(); r.onstop = () => res(); try { r.stop(); } catch (e) { res(); } }); }
+function stopRec(r) { return new Promise(res => { if (!r || r.state === "inactive") return res(); const t = setTimeout(res, 3000); r.onstop = () => { clearTimeout(t); res(); }; try { r.stop(); } catch (e) { clearTimeout(t); res(); } }); }
 async function rotateRecording() {
   if (!S.rec || S.rec.state !== "recording") return;
   const old = S.rec; S.seg++; newRecorder(); await stopRec(old);
@@ -453,7 +453,7 @@ let syncing = false;
 async function syncDrive(show) {
   if (syncing || !driveUrl()) return; syncing = true;
   try {
-    const l = (await allSessions()).filter(r => !r.uploaded && r.id !== S.sid && (r.done || r.start < Date.now() - 3 * 3600e3));
+    const l = (await allSessions()).filter(r => !r.uploaded && r.id !== S.sid && (r.done || r.type === "insight" || r.start < Date.now() - 3 * 3600e3));
     let n = 0; for (const r of l) if (await uploadSession(r)) n++;
     if (show || n) toast(n ? "Uploaded " + n + (n > 1 ? " sessions" : " session") + " to Drive" : (l.length ? "Upload failed. Will retry." : "Everything is in Drive."));
   } finally { syncing = false; if (S.view === "menu" || S.view === "saved") render(); }
@@ -498,14 +498,14 @@ async function startInsight() {
   await lockScreen(); await startRecording();
   if (S.recState !== "on") { unlockScreen(); toast("The microphone isn't available. Allow it in Settings → Safari → Microphone."); return; }
   S.insRec = true; S.insStart = now(); S.sessionStart = S.insStart; S.running = true;
-  startTranscript();
-  await putSession(insightRecord(false)); render(); showTranscript();
+  S.tr = null;   // iOS can't dictate and record at once, so no live transcript
+  await putSession(insightRecord(false)); render();
   clearInterval(S.itick); S.itick = setInterval(() => { const c = $("iclock"); if (c) c.textContent = fmt((now() - S.insStart) / 1000); }, 500);
 }
 function insightRecord(done) {
   const d = new Date(S.insStart);
   return { id: S.sid, type: "insight", key: "insight", name: "Insight", start: S.insStart, secs: Math.round((now() - S.insStart) / 1000), mime: S.recMime, done,
-    log: "TCA · Insight (not a training session)\nRecorded " + d.toLocaleString("en-GB") + "\nTopic: " + (S.insTopic || "not set") + "\nLength: " + fmtH((now() - S.insStart) / 1000) + "\n\nTranscript (live, by the phone" + (S.tr && S.tr.err ? "; issue: " + S.tr.err : "") + "):\n" + (S.tr ? (S.tr.final || "(empty)") : "(not available)") + "\n", exported: false, uploaded: 0 };
+    log: "TCA · Insight (not a training session)\nRecorded " + d.toLocaleString("en-GB") + "\nTopic: " + (S.insTopic || "not set") + "\nLength: " + fmtH((now() - S.insStart) / 1000) + "\n", exported: false, uploaded: 0 };
 }
 async function stopInsight() {
   clearInterval(S.itick); const b = $("irec"); if (b) { b.disabled = true; b.textContent = "Saving…"; }
@@ -586,7 +586,7 @@ function render() {
       '<div class="sec"><div class="eyebrow">About (optional)</div><div class="row" id="topics">' + TOPICS.map(t => '<button class="btn ghost topic' + (S.insTopic === t ? " on" : "") + '" data-t="' + t + '"' + (rec ? " disabled" : "") + '>' + t + '</button>').join("") + '</div></div>' +
       '<div class="clock" id="iclock" style="text-align:center;color:' + (rec ? "var(--ball)" : "var(--muted)") + '">' + (rec ? fmt((now() - S.insStart) / 1000) : "0:00") + '</div>' +
       '<div class="row"><button class="btn primary" id="irec">' + (rec ? "Stop and save" : "Start recording") + '</button></div>' +
-      (rec ? '<div class="transcript" id="trn" aria-live="polite"></div>' : '') + '<div class="toast" id="toast"></div><div class="status" id="istat"></div>' +
+      '<div class="toast" id="toast"></div><div class="status" id="istat"></div>' +
       (rec ? "" : '<div class="row"><button class="btn ghost" id="home">Back</button></div>');
     app.querySelectorAll(".topic").forEach(b => b.onclick = () => { S.insTopic = S.insTopic === b.dataset.t ? "" : b.dataset.t; render(); });
     if ($("home")) $("home").onclick = () => { S.view = "menu"; render(); };
@@ -694,7 +694,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-11";
+const APP_VERSION = "2026-10-14-12";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
