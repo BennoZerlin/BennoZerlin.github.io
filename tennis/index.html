@@ -478,10 +478,12 @@ function render() {
         '<div class="tile"><div class="k">Progress</div><div class="v">–</div><div class="s">loading</div></div><div class="tile"><div class="k">This week</div><div class="v">–</div></div><div class="tile"><div class="k">6 weeks</div><div class="v">–</div></div></div></button></div>' +
       '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary" id="train">Start a training session</button></div>' +
       '<div class="sec"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
-      '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>';
+      '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>' +
+      '<div class="row" style="align-items:center;justify-content:space-between"><span class="dv-meta">Version ' + APP_VERSION + '</span><button class="btn ghost" id="reload" style="flex:0 0 auto;min-height:44px;padding:10px 16px">Reload app</button></div>';
     $("dash").onclick = () => { S.view = "dashboard"; render(); };
     $("train").onclick = () => { S.view = "training"; render(); };
     $("saved").onclick = () => { S.view = "saved"; render(); };
+    $("reload").onclick = hardReload;
     app.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => { S.doc = b.dataset.doc; S.view = "doc"; render(); });
     activity().then(a => {
       const t = $("tiles"); if (!t) return;
@@ -591,7 +593,12 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-5";
+const APP_VERSION = "2026-10-14-6";
+async function hardReload() {
+  toast("Loading the newest version…");
+  try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
+  location.replace(location.pathname + "?r=" + Date.now());
+}
 async function checkUpdate() {
   if (S.view === "live" || S.view === "overview" || S.view === "done") return;
   try {
@@ -601,7 +608,7 @@ async function checkUpdate() {
     if (tried === v) return;
     try { sessionStorage.setItem("ct-upd", v); } catch (e) {}
     await fetch("./", { cache: "reload" }); await fetch("index.html", { cache: "reload" });
-    location.reload();
+    location.replace(location.pathname + "?v=" + encodeURIComponent(v));
   } catch (e) {}
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkUpdate(); });
