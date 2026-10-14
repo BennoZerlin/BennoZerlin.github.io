@@ -154,24 +154,31 @@ function unlockScreen() { try { S.wake && S.wake.release(); } catch (e) {} S.wak
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.running && !S.wake) lockScreen(); });
 
 /* ---------------- Recording (works where the page may use the microphone) ---------------- */
+const SEG_MS = 15 * 60 * 1000; // a new audio file every 15 minutes keeps each upload small
+function newRecorder() {
+  const ro = { audioBitsPerSecond: 32000 }; if (S.recMime0) ro.mimeType = S.recMime0;
+  let r; try { r = new MediaRecorder(S.stream, ro); } catch (e) { r = new MediaRecorder(S.stream, S.recMime0 ? { mimeType: S.recMime0 } : undefined); }
+  const seg = S.seg, sid = S.sid;
+  r.ondataavailable = e => { if (e.data && e.data.size) { S.chunks.push(e.data); if (sid) putChunk(sid, e.data, seg); } };
+  S.recMime = r.mimeType || S.recMime0 || "audio/mp4";
+  r.start(10000); S.rec = r; S.segStart = now();
+}
 async function startRecording() {
   if (!navigator.mediaDevices || !window.MediaRecorder) { S.recState = "unavailable"; return; }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
-    const mime = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
-    const ro = { audioBitsPerSecond: 32000 }; if (mime) ro.mimeType = mime;
-    try { S.rec = new MediaRecorder(stream, ro); } catch (e) { S.rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
-    S.recMime = S.rec.mimeType || mime || "audio/mp4"; S.chunks = [];
-    S.rec.ondataavailable = e => { if (e.data && e.data.size) { S.chunks.push(e.data); if (S.sid) putChunk(S.sid, e.data); } };
-    S.rec.start(10000); S.recState = "on";
+    S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
+    S.recMime0 = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
+    S.chunks = []; S.seg = 1; newRecorder(); S.recState = "on";
   } catch (e) { S.recState = "blocked"; }
 }
-function stopRecording() {
-  return new Promise(res => {
-    if (!S.rec || S.rec.state === "inactive") return res();
-    S.rec.onstop = () => { try { S.rec.stream.getTracks().forEach(t => t.stop()); } catch (e) {} res(); };
-    try { S.rec.stop(); } catch (e) { res(); }
-  });
+function stopRec(r) { return new Promise(res => { if (!r || r.state === "inactive") return res(); r.onstop = () => res(); try { r.stop(); } catch (e) { res(); } }); }
+async function rotateRecording() {
+  if (!S.rec || S.rec.state !== "recording") return;
+  const old = S.rec; S.seg++; newRecorder(); await stopRec(old);
+}
+async function stopRecording() {
+  await stopRec(S.rec);
+  try { S.stream && S.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
 }
 function pauseRecording(p) { try { if (S.rec && S.rec.state !== "inactive") p ? S.rec.pause() : S.rec.resume(); } catch (e) {} }
 
@@ -193,10 +200,12 @@ async function dbTx(stores, mode, fn) {
 }
 const reqP = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 async function putSession(rec) { try { await dbTx(["sessions"], "readwrite", t => t.objectStore("sessions").put(rec)); } catch (e) {} }
-async function putChunk(sid, blob) { try { await dbTx(["chunks"], "readwrite", t => t.objectStore("chunks").add({ sid, blob })); } catch (e) {} }
+async function putChunk(sid, blob, seg) { try { await dbTx(["chunks"], "readwrite", t => t.objectStore("chunks").add({ sid, blob, seg: seg || 1 })); } catch (e) {} }
 async function allSessions() { try { const d = await dbOpen(); const l = await reqP(d.transaction("sessions").objectStore("sessions").getAll()); return l.sort((a, b) => b.start - a.start); } catch (e) { return []; } }
 async function sessionAudio(rec) {
-  try { const d = await dbOpen(); const l = await reqP(d.transaction("chunks").objectStore("chunks").index("sid").getAll(rec.id)); return l.length ? new Blob(l.map(x => x.blob), { type: rec.mime || "audio/mp4" }) : null; } catch (e) { return null; }
+  try { const d = await dbOpen(); const l = await reqP(d.transaction("chunks").objectStore("chunks").index("sid").getAll(rec.id));
+    const segs = {}; l.forEach(x => (segs[x.seg || 1] = segs[x.seg || 1] || []).push(x.blob));
+    return Object.keys(segs).map(Number).sort((a, b) => a - b).map(k => new Blob(segs[k], { type: rec.mime || "audio/mp4" })); } catch (e) { return []; }
 }
 async function deleteSession(id) {
   try { await dbTx(["sessions", "chunks"], "readwrite", t => { t.objectStore("sessions").delete(id); const ix = t.objectStore("chunks").index("sid"); ix.openKeyCursor(IDBKeyRange.only(id)).onsuccess = e => { const c = e.target.result; if (c) { t.objectStore("chunks").delete(c.primaryKey); c.continue(); } }; }); } catch (e) {}
@@ -235,6 +244,7 @@ function loop() {
   clearInterval(S.tick);
   S.tick = setInterval(() => {
     if (!S.running) return;
+    if (S.rec && S.rec.state === "recording" && now() - S.segStart >= SEG_MS) { rotateRecording(); logLine("Audio part " + (S.seg)); }
     const b = plan().blocks[S.i], left = b.min * 60 - blockSecs();
     if (!S.warned && b.min >= 5 && left <= 60) { S.warned = true; say("One minute left."); }
     if (left <= 0) {
@@ -294,8 +304,8 @@ function stampOf(t) { const d = new Date(t); const p = n => String(n).padStart(2
 async function filesFor(rec) {
   const base = "tca_" + stampOf(rec.start) + "_" + rec.key;
   const out = [new File([rec.log], base + ".txt", { type: "text/plain" })];
-  const a = await sessionAudio(rec);
-  if (a) out.push(new File([a], base + (/webm/.test(rec.mime) ? ".webm" : ".mp4"), { type: a.type }));
+  const parts = await sessionAudio(rec), ext = /webm/.test(rec.mime) ? ".webm" : ".mp4";
+  parts.forEach((a, i) => out.push(new File([a], base + (parts.length > 1 ? "_part" + (i + 1) : "") + ext, { type: a.type })));
   return out;
 }
 async function exportSessions(recs) {
