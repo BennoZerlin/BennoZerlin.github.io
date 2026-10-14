@@ -178,6 +178,11 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .btn.topic { flex: 0 0 auto; min-height: 40px; padding: 8px 14px; font-size: .88rem; font-weight: 500; }
 .btn.topic.on { border-color: var(--ball); color: var(--ball); }
 
+.btn.big { width: 100%; min-height: 84px; font-size: 1.2rem; flex: none; }
+.btn.wide { width: 100%; flex: none; }
+.transcript { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 3em; font-size: .95rem; white-space: pre-wrap; }
+.transcript .interim { color: var(--muted); }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -446,22 +451,47 @@ async function copyLog() {
 }
 
 /* ---------------- Insights: voice notes for the next coaching review ---------------- */
+/* Live transcript on the phone (Apple dictation), uploaded as text next to the audio */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function startTranscript() {
+  S.tr = { final: "", interim: "", on: !!SR, err: "" };
+  if (!SR) return;
+  const go = () => {
+    try {
+      const r = new SR(); r.lang = "en-GB"; r.continuous = true; r.interimResults = true;
+      r.onresult = e => { let it = ""; for (let i = e.resultIndex; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) S.tr.final += (S.tr.final ? " " : "") + t.trim(); else it += t; } S.tr.interim = it; showTranscript(); };
+      r.onerror = e => { S.tr.err = e.error || "error"; showTranscript(); };
+      r.onend = () => { if (S.insRec && S.tr.err !== "not-allowed") setTimeout(go, 250); };
+      r.start(); S.tr.r = r;
+    } catch (e) { S.tr.err = String(e.message || e); showTranscript(); }
+  };
+  go();
+}
+function stopTranscript() { if (S.tr && S.tr.r) { try { S.tr.r.onend = null; S.tr.r.stop(); } catch (e) {} } if (S.tr && S.tr.interim) { S.tr.final += " " + S.tr.interim; S.tr.interim = ""; } }
+function showTranscript() {
+  const el = $("trn"); if (!el || !S.tr) return;
+  el.innerHTML = ""; el.append(document.createTextNode(S.tr.final + " "));
+  const i = document.createElement("span"); i.className = "interim"; i.textContent = S.tr.interim; el.append(i);
+  const st = $("istat"); if (st) st.innerHTML = !SR ? '<span class="warn">Live transcript isn\'t available on this phone. The audio is still saved.</span>' : (S.tr.err ? '<span class="warn">Transcript: ' + S.tr.err + '</span>' : '<span class="ok">Live transcript on</span>');
+}
 async function startInsight() {
   S.sid = "i" + now(); S.key = "insight"; S.log = [];
   await lockScreen(); await startRecording();
   if (S.recState !== "on") { unlockScreen(); toast("The microphone isn't available. Allow it in Settings → Safari → Microphone."); return; }
   S.insRec = true; S.insStart = now(); S.sessionStart = S.insStart; S.running = true;
-  await putSession(insightRecord(false)); render();
+  startTranscript();
+  await putSession(insightRecord(false)); render(); showTranscript();
   clearInterval(S.itick); S.itick = setInterval(() => { const c = $("iclock"); if (c) c.textContent = fmt((now() - S.insStart) / 1000); }, 500);
 }
 function insightRecord(done) {
   const d = new Date(S.insStart);
   return { id: S.sid, type: "insight", key: "insight", name: "Insight", start: S.insStart, secs: Math.round((now() - S.insStart) / 1000), mime: S.recMime, done,
-    log: "TCA · Insight (not a training session)\nRecorded " + d.toLocaleString("en-GB") + "\nTopic: " + (S.insTopic || "not set") + "\nLength: " + fmtH((now() - S.insStart) / 1000) + "\n", exported: false, uploaded: 0 };
+    log: "TCA · Insight (not a training session)\nRecorded " + d.toLocaleString("en-GB") + "\nTopic: " + (S.insTopic || "not set") + "\nLength: " + fmtH((now() - S.insStart) / 1000) + "\n\nTranscript (live, by the phone" + (S.tr && S.tr.err ? "; issue: " + S.tr.err : "") + "):\n" + (S.tr ? (S.tr.final || "(empty)") : "(not available)") + "\n", exported: false, uploaded: 0 };
 }
 async function stopInsight() {
   clearInterval(S.itick); const b = $("irec"); if (b) { b.disabled = true; b.textContent = "Saving…"; }
-  await stopRecording(); unlockScreen(); S.running = false; S.insRec = false;
+  S.insRec = false; stopTranscript();
+  await stopRecording(); unlockScreen(); S.running = false;
   const r = insightRecord(true); await putSession(r); S.sessionStart = 0;
   S.view = "menu"; render(); toast("Insight saved" + (driveUrl() ? ". Uploading to Drive…" : "."));
   if (driveUrl()) { const ok = await uploadSession(r); toast(ok ? "Insight is in your Drive." : "Upload failed. It retries next time you open the app."); }
@@ -511,7 +541,7 @@ function render() {
     app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>TCA</h1><p class="sub">Tennis Coach Agent</p></header>' +
       '<div class="sec"><div class="eyebrow">Dashboard</div><button class="card" id="dash" aria-label="Open dashboard"><div class="tiles" id="tiles">' +
         '<div class="tile"><div class="k">Progress</div><div class="v">–</div><div class="s">loading</div></div><div class="tile"><div class="k">This week</div><div class="v">–</div></div><div class="tile"><div class="k">6 weeks</div><div class="v">–</div></div></div></button></div>' +
-      '<div class="sec"><div class="eyebrow">Training</div><div class="row"><button class="btn primary" id="train">Start a training session</button><button class="btn" id="ins">Record an insight</button></div></div>' +
+      '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary big" id="train">Start a training session</button><button class="btn wide" id="ins">Record an insight</button></div>' +
       '<div class="sec"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
       '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>' +
       '<div class="row" style="align-items:center;justify-content:space-between"><span class="dv-meta">Version ' + APP_VERSION + '</span><button class="btn ghost" id="reload" style="flex:0 0 auto;min-height:44px;padding:10px 16px">Reload app</button></div>';
@@ -536,7 +566,7 @@ function render() {
       '<div class="sec"><div class="eyebrow">About (optional)</div><div class="row" id="topics">' + TOPICS.map(t => '<button class="btn ghost topic' + (S.insTopic === t ? " on" : "") + '" data-t="' + t + '"' + (rec ? " disabled" : "") + '>' + t + '</button>').join("") + '</div></div>' +
       '<div class="clock" id="iclock" style="text-align:center;color:' + (rec ? "var(--ball)" : "var(--muted)") + '">' + (rec ? fmt((now() - S.insStart) / 1000) : "0:00") + '</div>' +
       '<div class="row"><button class="btn primary" id="irec">' + (rec ? "Stop and save" : "Start recording") + '</button></div>' +
-      '<div class="toast" id="toast"></div><div class="status" id="istat"></div>' +
+      (rec ? '<div class="transcript" id="trn" aria-live="polite"></div>' : '') + '<div class="toast" id="toast"></div><div class="status" id="istat"></div>' +
       (rec ? "" : '<div class="row"><button class="btn ghost" id="home">Back</button></div>');
     app.querySelectorAll(".topic").forEach(b => b.onclick = () => { S.insTopic = S.insTopic === b.dataset.t ? "" : b.dataset.t; render(); });
     if ($("home")) $("home").onclick = () => { S.view = "menu"; render(); };
@@ -644,7 +674,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-9";
+const APP_VERSION = "2026-10-14-10";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
