@@ -185,7 +185,7 @@ pre.log { background: var(--panel); border: 1px solid var(--line); border-radius
 <script>
 /* ---------------- Plan: Phase 1, valid Oct 2026 – end Q1 2027 ---------------- */
 const PLAN = {
-  A: { name: "Coach focus training", status: ["develop"], with: "Coach · 60 min · once a week", focus: "Develop · current focus: engine",
+  A: { name: "Coach Focus Training", status: ["develop"], with: "Coach · 60 min · once a week", focus: "Develop · current focus: engine",
        blocks: [ { name: "Coach session", min: 60, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", cue: "Coach session. Sixty minutes. Focus engine: loose wrist, let the racket swing." } ] },
   B: { name: "Practice with F&F", status: ["stabilize", "compete"], with: "Friends and family · 60 min · every week", focus: "Stabilize + Compete · current focus: depth and steering",
        blocks: [
@@ -194,12 +194,12 @@ const PLAN = {
          { name: "Direction training", min: 10, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line. Plus the steering test, once or twice: rally down your forehand line, two balls down the line, the third crosscourt from the forehand corner. Counts past the service line and inside the leftmost 2 m. 10 tries, say the count.", cue: "Direction training. Ten minutes. Find the cross angle. Steering test once or twice: two down the line, third one crosscourt. Say the count." },
          { name: "Direction under pressure", min: 10, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", cue: "Direction under pressure. Ten minutes. Deep crosscourt when you are pushed wide." },
          { name: "Match play", min: 20, desc: "Tiebreaks or match tiebreaks with the Match Card. Deep ball wins count double.", cue: "Match play. Twenty minutes. Three deep balls win the point." } ] },
-  C: { name: "Serve session", status: ["stabilize"], with: "Alone, on court · 60 min · every week", focus: "Stabilize · current focus: kick and flat T",
+  C: { name: "Serve Session", status: ["stabilize"], with: "Alone, on court · 60 min · every week", focus: "Stabilize · current focus: kick and flat T",
        blocks: [
          { name: "Set-up and warm-up", min: 5, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", cue: "Set up and warm up. Five minutes." },
          { name: "Target practice", min: 20, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", cue: "Target practice. Twenty minutes. Ten serves per target. From the knees, core through the ball." },
          { name: "Target sequence", min: 35, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating.", cue: "Target sequence. Thirty five minutes. Flat down the T twice, kick wide twice, then switch sides." } ] },
-  D: { name: "Tennis wall session", status: ["develop", "stabilize"], with: "Alone · 60 min · every second week", focus: "Develop + Stabilize · current focus: engine and serve",
+  D: { name: "Tennis Wall Session", status: ["develop", "stabilize"], with: "Alone · 60 min · every second week", focus: "Develop + Stabilize · current focus: engine and serve",
        blocks: [
          { name: "Loosen", min: 5, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", cue: "Loosen. Five minutes. Grip pressure three out of ten. Listen for the swoosh." },
          { name: "Drop-feed whip", min: 15, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", cue: "Drop feed whip. Fifteen minutes. Three finger grip, early preparation, breathe out through contact." },
@@ -444,13 +444,15 @@ async function copyLog() {
 
 /* ---------------- Activity (from sessions saved on this phone) ---------------- */
 const WEEK_GOAL_H = 4;
+const MIN_SECS = 15 * 60;   // shorter sessions are kept, but don't count
+const counts = r => r.done && (r.secs || 0) >= MIN_SECS;
 function weekStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
 async function activity() {
-  const l = await allSessions(), w0 = weekStart(Date.now()), W = 7 * 864e5, weeks = [0, 0, 0, 0, 0, 0];
+  const all = await allSessions(), l = all.filter(counts), w0 = weekStart(Date.now()), W = 7 * 864e5, weeks = [0, 0, 0, 0, 0, 0];
   l.forEach(r => { const i = Math.round((w0 - weekStart(r.start)) / W); if (i >= 0 && i < 6) weeks[5 - i] += r.secs || 0; });
   const h = weeks.map(x => x / 3600), recent = (h[3] + h[4] + h[5]) / 3, before = (h[0] + h[1] + h[2]) / 3;
-  const byKey = k => l.filter(r => r.done && k.includes(r.key)).length;
-  return { sessions: l, weeks: h, thisWeek: h[5], avg6: h.reduce((a, b) => a + b, 0) / 6, trend: l.length < 4 ? "Too early" : (recent > before * 1.15 ? "Rising" : recent < before * 0.85 ? "Falling" : "Steady"),
+  const byKey = k => l.filter(r => k.includes(r.key)).length;
+  return { sessions: l, all, weeks: h, thisWeek: h[5], avg6: h.reduce((a, b) => a + b, 0) / 6, trend: l.length < 4 ? "Too early" : (recent > before * 1.15 ? "Rising" : recent < before * 0.85 ? "Falling" : "Steady"),
            serveN: byKey("CD"), depthN: byKey("AB"), steerN: byKey("B") };
 }
 const fmtHM = h => { const m = Math.round(h * 60); return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0"); };
@@ -495,11 +497,11 @@ function render() {
     app.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => { S.doc = b.dataset.doc; S.view = "doc"; render(); });
     activity().then(a => {
       const t = $("tiles"); if (!t) return;
-      const n = a.sessions.filter(r => r.done).length;
+      const n = a.sessions.length;
       t.innerHTML = '<div class="tile"><div class="k">Progress</div><div class="v">' + (n < 6 ? n + "/6" : "–") + '</div><div class="s">' + (n < 6 ? "sessions until first read" : "awaiting analysis") + '</div></div>' +
         '<div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div><div class="bar"><i style="width:' + Math.min(100, 100 * a.thisWeek / WEEK_GOAL_H) + '%;background:var(--ball)"></i></div></div>' +
         '<div class="tile"><div class="k">6 weeks</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div><div class="s">avg ' + fmtHM(a.avg6) + ' h/week</div>' + spark(a.weeks) + '</div>';
-      const b = $("saved"), nx = a.sessions.filter(r => driveUrl() ? !r.uploaded : !r.exported).length; if (b) b.textContent = "Saved sessions" + (a.sessions.length ? " · " + a.sessions.length + (nx ? " (" + nx + (driveUrl() ? " not uploaded)" : " not exported)") : "") : "");
+      const b = $("saved"), nx = a.all.filter(r => driveUrl() ? !r.uploaded : !r.exported).length; if (b) b.textContent = "Saved sessions" + (a.all.length ? " · " + a.all.length + (nx ? " (" + nx + (driveUrl() ? " not uploaded)" : " not exported)") : "") : "");
     });
   } else if (S.view === "training") {
     app.innerHTML = '<header><div class="eyebrow">Training</div><h1>Pick a session</h1><p class="sub">Cues play through your AirPods.</p></header>' +
@@ -509,7 +511,7 @@ function render() {
     app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
     $("home").onclick = () => { S.view = "menu"; render(); };
   } else if (S.view === "dashboard") {
-    app.innerHTML = '<header><div class="eyebrow">Dashboard</div><h1>Progress</h1><p class="sub">Levels and trends appear once your recordings are analysed. A level needs 5 sessions, a trend 6.</p></header><div id="db" class="card">Loading…</div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    app.innerHTML = '<header><div class="eyebrow">Dashboard</div><h1>Progress</h1><p class="sub">Levels and trends appear once your recordings are analysed. A level needs 5 sessions, a trend 6. Sessions under 15 minutes don\'t count.</p></header><div id="db" class="card">Loading…</div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
     $("home").onclick = () => { S.view = "menu"; render(); };
     activity().then(a => {
       const g = (name, n, need, test) => '<div class="goalrow"><span><b>' + name + '</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + test + '</span></span><span class="lv">' + (n < need ? "–" : "–") + '</span><span class="s" style="color:var(--muted);font-size:.8rem;grid-column:1/-1">' + n + ' session' + (n === 1 ? "" : "s") + ' so far · ' + (n < need ? (need - n) + " more until first level" : "waiting for analysis") + '</span></div>';
@@ -540,7 +542,7 @@ function render() {
       if (!l.length) { list.innerHTML = '<p class="note">No sessions yet.</p>'; $("exn").disabled = true; return; }
       $("exn").onclick = () => exportSessions(l.filter(r => !r.exported));
       $("exn").disabled = !l.some(r => !r.exported);
-      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter">' + r.key + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter">' + r.key + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + ((r.secs || 0) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
       list.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => exportSessions(l.filter(r => r.id === b.dataset.ex)));
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
     });
@@ -604,7 +606,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-7";
+const APP_VERSION = "2026-10-14-8";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
