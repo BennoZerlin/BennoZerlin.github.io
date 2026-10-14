@@ -183,6 +183,25 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .transcript { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-height: 3em; font-size: .95rem; white-space: pre-wrap; }
 .transcript .interim { color: var(--muted); }
 
+/* Home density: everything down to the Player Profile fits above the fold */
+.hhead { display: flex; align-items: center; gap: 12px; }
+.hhead h1 { font-size: 2.3rem; line-height: 1; }
+.hhead .sub { font-size: .78rem; line-height: 1.3; margin: 0; }
+.wrap:has(.hhead) { gap: 12px; padding-block: 14px 24px; }
+.sec { gap: 8px; }
+.dashcard { padding: 12px 14px; }
+.tile { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tile .v { font-size: 1.45rem; white-space: nowrap; }
+.tile .s { font-size: .72rem; line-height: 1.25; }
+.tbar { margin-top: auto; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.tile .s { margin-bottom: 8px; }
+.tbar > i { display: block; height: 100%; background: var(--ball); border-radius: 3px; }
+.btn.big { min-height: 76px; }
+.btn.slim { min-height: 50px; padding: 10px 14px; }
+.docs .doc { padding: 9px 14px; }
+.docs .doc .meta { font-size: .78rem; }
+@media (max-width: 380px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tiles .tile:last-child { grid-column: auto; } .tile .v { font-size: 1.2rem; } }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -538,11 +557,11 @@ function tags(st) { return st.map(s => '<span class="tag ' + s + '">' + s + "</s
 function render() {
   const app = $("app");
   if (S.view === "menu") {
-    app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>TCA</h1><p class="sub">Tennis Coach Agent</p></header>' +
-      '<div class="sec"><div class="eyebrow">Dashboard</div><button class="card" id="dash" aria-label="Open dashboard"><div class="tiles" id="tiles">' +
-        '<div class="tile"><div class="k">Progress</div><div class="v">–</div><div class="s">loading</div></div><div class="tile"><div class="k">This week</div><div class="v">–</div></div><div class="tile"><div class="k">6 weeks</div><div class="v">–</div></div></div></button></div>' +
-      '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary big" id="train">Start a training session</button><button class="btn wide" id="ins">Record an insight</button></div>' +
-      '<div class="sec"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
+    app.innerHTML = '<header class="hhead"><h1>TCA</h1><span class="sub">Tennis Coach Agent<br>Phase 1 · until end of Q1 2027</span></header>' +
+      '<div class="sec"><div class="eyebrow">Dashboard</div><button class="card dashcard" id="dash" aria-label="Open dashboard"><div class="tiles" id="tiles">' +
+        ['Progress', 'This week', '6 weeks'].map(k => '<div class="tile"><div class="k">' + k + '</div><div class="v">–</div><div class="s">&nbsp;</div><div class="bar tbar"><i></i></div></div>').join("") + '</div></button></div>' +
+      '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary big" id="train">Start a training session</button><button class="btn wide slim" id="ins">Record an insight</button></div>' +
+      '<div class="sec docs"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
       '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>' +
       '<div class="row" style="align-items:center;justify-content:space-between"><span class="dv-meta">Version ' + APP_VERSION + '</span><button class="btn ghost" id="reload" style="flex:0 0 auto;min-height:44px;padding:10px 16px">Reload app</button></div>';
     $("dash").onclick = () => { S.view = "dashboard"; render(); };
@@ -554,9 +573,10 @@ function render() {
     activity().then(a => {
       const t = $("tiles"); if (!t) return;
       const n = a.sessions.length;
-      t.innerHTML = '<div class="tile"><div class="k">Progress</div><div class="v">' + (n < 6 ? n + "/6" : "–") + '</div><div class="s">' + (n < 6 ? "sessions until first read" : "awaiting analysis") + '</div></div>' +
-        '<div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div><div class="bar"><i style="width:' + Math.min(100, 100 * a.thisWeek / WEEK_GOAL_H) + '%;background:var(--ball)"></i></div></div>' +
-        '<div class="tile"><div class="k">6 weeks</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div><div class="s">avg ' + fmtHM(a.avg6) + ' h/week</div>' + spark(a.weeks) + '</div>';
+      const tile = (k, v, sub, pct) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div><div class="bar tbar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div></div>';
+      t.innerHTML = tile("Progress", n < 6 ? n + "/6" : "6/6", n < 6 ? "sessions to first read" : "awaiting analysis", 100 * Math.min(n, 6) / 6) +
+        tile("This week", fmtHM(a.thisWeek) + " h", "of " + WEEK_GOAL_H + ":00 h goal", 100 * a.thisWeek / WEEK_GOAL_H) +
+        tile("6 weeks", fmtHM(a.avg6) + " h", "avg per week · " + a.trend.toLowerCase(), 100 * a.avg6 / WEEK_GOAL_H);
       const b = $("saved"), nx = a.all.filter(r => driveUrl() ? !r.uploaded : !r.exported).length; if (b) b.textContent = "Saved sessions" + (a.all.length ? " · " + a.all.length + (nx ? " (" + nx + (driveUrl() ? " not uploaded)" : " not exported)") : "") : "");
     });
   } else if (S.view === "insight") {
@@ -674,7 +694,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-10";
+const APP_VERSION = "2026-10-14-11";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
