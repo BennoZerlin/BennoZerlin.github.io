@@ -1,7 +1,7 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body><title>Court Timer</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body><title>TCA · Tennis Coach Agent</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Court Timer">
+<meta name="apple-mobile-web-app-title" content="TCA">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=Figtree:wght@400;500;600&display=swap">
 <style>
@@ -267,7 +267,7 @@ async function finish(natural) {
   await stopRecording(); unlockScreen();
   await putSession(sessionRecord(true));
   S.finished = true; S.view = "done"; render();
-  if (driveUrl()) { const r = (await allSessions()).find(x => x.id === S.sid); const ok = r && await uploadSession(r); const st = $("drv"); if (st) st.innerHTML = ok ? '<span class="ok">In your Google Drive, folder Court Timer.</span>' : '<span class="warn">Upload failed. It retries next time you open the app.</span>'; }
+  if (driveUrl()) { const r = (await allSessions()).find(x => x.id === S.sid); const ok = r && await uploadSession(r); const st = $("drv"); if (st) st.innerHTML = ok ? '<span class="ok">In your Google Drive, folder TCA.</span>' : '<span class="warn">Upload failed. It retries next time you open the app.</span>'; }
 }
 
 /* ---------------- Saving ---------------- */
@@ -292,7 +292,7 @@ async function shareFiles(files, label) {
 }
 function stampOf(t) { const d = new Date(t); const p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()); }
 async function filesFor(rec) {
-  const base = "court-timer_" + stampOf(rec.start) + "_" + rec.key;
+  const base = "tca_" + stampOf(rec.start) + "_" + rec.key;
   const out = [new File([rec.log], base + ".txt", { type: "text/plain" })];
   const a = await sessionAudio(rec);
   if (a) out.push(new File([a], base + (/webm/.test(rec.mime) ? ".webm" : ".mp4"), { type: a.type }));
@@ -301,7 +301,7 @@ async function filesFor(rec) {
 async function exportSessions(recs) {
   if (!recs.length) return;
   let files = []; for (const r of recs) files = files.concat(await filesFor(r));
-  if (await shareFiles(files, "Court Timer sessions")) { for (const r of recs) { r.exported = true; await putSession(r); } toast("Exported " + recs.length + (recs.length > 1 ? " sessions" : " session")); }
+  if (await shareFiles(files, "TCA sessions")) { for (const r of recs) { r.exported = true; await putSession(r); } toast("Exported " + recs.length + (recs.length > 1 ? " sessions" : " session")); }
   if (S.view === "menu" || S.view === "saved") render();
 }
 /* ---------------- Automatic upload to Google Drive (via your Apps Script) ---------------- */
@@ -335,7 +335,7 @@ async function testDrive(u) {
     const r = await fetch(x.toString(), { redirect: "follow" }); const j = await r.json(); return j.ok && j.app === "court-timer" ? "" : (j.error === "key" ? "The key after ?k= is wrong." : "The script answered, but not as expected."); }
   catch (e) { return "Could not reach the script: " + (e && e.message || e); }
 }
-function logText() { return "Court Timer · Session " + S.key + " · " + plan().name + "\n\n" + S.log.join("\n") + "\n"; }
+function logText() { return "TCA · Session " + S.key + " · " + plan().name + "\n\n" + S.log.join("\n") + "\n"; }
 async function copyLog() {
   try { await navigator.clipboard.writeText(logText()); toast("Log copied."); }
   catch (e) { const r = document.createRange(); r.selectNodeContents($("log")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Select and copy the log."); }
@@ -347,7 +347,7 @@ function tags(st) { return st.map(s => '<span class="tag ' + s + '">' + s + "</s
 function render() {
   const app = $("app");
   if (S.view === "menu") {
-    app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>Court Timer</h1><p class="sub">Pick today\'s session. Cues play through your AirPods.</p></header>' +
+    app.innerHTML = '<header><div class="eyebrow">Phase 1 · until end of Q1 2027</div><h1>TCA</h1><p class="sub">Pick today\'s session. Cues play through your AirPods.</p></header>' +
       '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + tags(p.status) + p.with + '</span></span><span class="mins">' + totalMin(k) + '′</span></button>'; }).join("") + "</div>" +
       '<button class="btn ghost" id="saved" style="width:100%;margin-top:16px">Saved sessions</button>' +
       '<p class="note">Before you start: Low Power Mode off, AirPods in, phone in the shade. Keep this page open; the screen stays on. Every session is saved on this phone automatically.</p>';
