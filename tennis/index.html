@@ -546,7 +546,7 @@ function spark(h) { const mx = Math.max(WEEK_GOAL_H, ...h); return '<div class="
 /* ---------------- Documents (encrypted in the app, opened with your private key) ---------------- */
 const DOCS = [
   { id: "match-card", short: "Match Card", name: "Match Card", meta: "Game plan, between points, player types" },
-  { id: "roadmap", short: "Roadmap", name: "Road to Competitive Tennis", meta: "Seven blocks, levels and graduation tests" },
+  { id: "roadmap", short: "Roadmap", name: "Road to Competitive Tennis", meta: "Road ahead, graduation tests, track record" },
   { id: "schedule", short: "Schedule", name: "Weekly Schedule", meta: "Phase 1 · sessions A to D and their plans" },
   { id: "profile", short: "Profile", name: "Player Profile", meta: "DTB assessment and priorities" } ];
 const docCache = {};
@@ -705,7 +705,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-14-13";
+const APP_VERSION = "2026-10-15-1";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
