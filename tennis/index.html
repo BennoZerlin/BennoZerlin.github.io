@@ -476,7 +476,8 @@ async function shareFiles(files, label) {
 function stampOf(t) { const d = new Date(t); const p = n => String(n).padStart(2, "0"); return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()); }
 async function filesFor(rec) {
   const base = "tca_" + stampOf(rec.start) + "_" + rec.key;
-  const out = [new File([rec.log], base + ".txt", { type: "text/plain" })];
+  const logBody = rec.log + (rec.actualSecs ? "\nActual length (entered after the session): " + Math.round(rec.actualSecs / 60) + " min (recorded " + fmtH(rec.secs) + ")\n" : "");
+  const out = [new File([logBody], base + ".txt", { type: "text/plain" })];
   const parts = await sessionAudio(rec), ext = /webm/.test(rec.mime) ? ".webm" : ".mp4";
   parts.forEach((a, i) => out.push(new File([a], base + (parts.length > 1 ? "_part" + (i + 1) : "") + ext, { type: a.type })));
   return out;
@@ -571,14 +572,31 @@ async function stopInsight() {
   if (driveUrl()) { const ok = await uploadSession(r); toast(ok ? "Insight is in your Drive." : "Upload failed. It retries next time you open the app."); }
 }
 
+/* ---------------- Real length entered by hand ---------------- */
+async function setActualLength(id, minutes) {
+  const r = (await allSessions()).find(x => x.id === id); if (!r) return false;
+  const m = Math.round(Number(minutes));
+  if (!m || m < 1 || m > 300) { toast("Enter the length in minutes, 1 to 300."); return false; }
+  r.actualSecs = Math.abs(m * 60 - (r.secs || 0)) < 60 ? 0 : m * 60; await putSession(r);
+  if (driveUrl() && r.uploaded) {
+    try { const f = (await filesFor(r))[0]; await postDrive({ name: f.name, mime: "text/plain", data: await b64(f) }); toast("Length saved, log in Drive updated."); }
+    catch (e) { r.uploaded = 0; await putSession(r); toast("Length saved. Drive update retries later."); }
+  } else toast("Length saved.");
+  return true;
+}
+function lengthEditor(r) {
+  return '<div class="row" style="align-items:center"><label for="len" class="sub" style="margin:0">Real length</label><input id="len" type="number" inputmode="numeric" min="1" max="300" value="' + Math.round(effSecs(r) / 60) + '" style="width:5.5em;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:inherit;font:inherit;font-size:1.1rem"><span class="sub" style="margin:0">min</span><button class="btn" id="lensave" style="flex:0 0 auto">Save</button></div>';
+}
+
 /* ---------------- Activity (from sessions saved on this phone) ---------------- */
 const WEEK_GOAL_H = 4;
 const MIN_SECS = 15 * 60;   // shorter sessions are kept, but don't count
-const counts = r => r.type !== "insight" && r.done && (r.secs || 0) >= MIN_SECS;
+const effSecs = r => r.actualSecs || r.secs || 0;   // a length entered by hand wins over the recorded one
+const counts = r => r.type !== "insight" && r.done && effSecs(r) >= MIN_SECS;
 function weekStart(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
 async function activity() {
   const all = await allSessions(), l = all.filter(counts), w0 = weekStart(Date.now()), W = 7 * 864e5, weeks = [0, 0, 0, 0, 0, 0];
-  l.forEach(r => { const i = Math.round((w0 - weekStart(r.start)) / W); if (i >= 0 && i < 6) weeks[5 - i] += r.secs || 0; });
+  l.forEach(r => { const i = Math.round((w0 - weekStart(r.start)) / W); if (i >= 0 && i < 6) weeks[5 - i] += effSecs(r); });
   const h = weeks.map(x => x / 3600), recent = (h[3] + h[4] + h[5]) / 3, before = (h[0] + h[1] + h[2]) / 3;
   const byKey = k => l.filter(r => k.includes(r.key)).length;
   return { sessions: l, all, weeks: h, thisWeek: h[5], avg6: h.reduce((a, b) => a + b, 0) / 6, trend: l.length < 4 ? "Too early" : (recent > before * 1.15 ? "Rising" : recent < before * 0.85 ? "Falling" : "Steady"),
@@ -685,7 +703,8 @@ function render() {
       if (!l.length) { list.innerHTML = '<p class="note">No sessions yet.</p>'; $("exn").disabled = true; return; }
       $("exn").onclick = () => exportSessions(l.filter(r => !r.exported));
       $("exn").disabled = !l.some(r => !r.exported);
-      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(r.secs) + (r.done ? "" : " · interrupted") + ((r.secs || 0) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px"><button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(effSecs(r)) + (r.actualSecs ? " (entered)" : "") + (r.done ? "" : " · interrupted") + (r.type !== "insight" && effSecs(r) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px">' + (r.type === "insight" ? "" : '<button class="btn" data-len="' + r.id + '">Length</button>') + '<button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.querySelectorAll("[data-len]").forEach(b => b.onclick = () => { S.editId = b.dataset.len; S.view = "editlen"; render(); });
       list.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => exportSessions(l.filter(r => r.id === b.dataset.ex)));
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
     });
@@ -715,6 +734,7 @@ function render() {
   } else if (S.view === "done") {
     const hasAudio = S.chunks.length > 0;
     app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · ' + fmtH(sessionSecs()) + '</div><h1>Session done</h1><p class="sub">Saved on this phone.</p><div class="status" id="drv">' + (driveUrl() ? 'Uploading to Google Drive…' : 'Google Drive not connected. Set it up under Saved sessions.') + '</div></header>' +
+      '<div class="sec"><div class="eyebrow">Started late or ended late?</div>' + lengthEditor({ secs: Math.round(sessionSecs()) }) + '</div>' +
       '<pre class="log" id="log"></pre>' +
       '<div class="row"><button class="btn primary" id="ex">Export to Files</button><button class="btn" id="cl">Copy log</button></div>' +
       '<div class="toast" id="toast"></div>' +
@@ -724,6 +744,15 @@ function render() {
     $("cl").onclick = copyLog;
     $("ex").onclick = async () => { const l = await allSessions(); exportSessions(l.filter(r => r.id === S.sid)); };
     $("home").onclick = () => { S.view = "menu"; S.chunks = []; render(); };
+    $("lensave").onclick = () => setActualLength(S.sid, $("len").value);
+  } else if (S.view === "editlen") {
+    allSessions().then(l => {
+      const r = l.find(x => x.id === S.editId); if (!r) { S.view = "saved"; render(); return; }
+      app.innerHTML = '<header><div class="eyebrow">Session ' + r.key + ' · ' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</div><h1>Real length</h1><p class="sub">Recorded ' + fmtH(r.secs) + '. Enter how long you actually trained; the dashboard counts this length.</p></header>' +
+        lengthEditor(r) + '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="back">Back</button></div>';
+      $("back").onclick = () => { S.view = "saved"; render(); };
+      $("lensave").onclick = async () => { if (await setActualLength(r.id, $("len").value)) setTimeout(() => { S.view = "saved"; render(); }, 900); };
+    });
   }
 }
 function renderLive() {
@@ -749,7 +778,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-16-2";
+const APP_VERSION = "2026-10-16-3";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
