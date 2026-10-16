@@ -277,18 +277,45 @@ function newRecorder() {
   const ro = { audioBitsPerSecond: 32000 }; if (S.recMime0) ro.mimeType = S.recMime0;
   let r; try { r = new MediaRecorder(S.stream, ro); } catch (e) { r = new MediaRecorder(S.stream, S.recMime0 ? { mimeType: S.recMime0 } : undefined); }
   const seg = S.seg, sid = S.sid;
-  r.ondataavailable = e => { if (e.data && e.data.size) { S.chunks.push(e.data); if (sid) putChunk(sid, e.data, seg); } };
+  r.ondataavailable = e => { if (e.data && e.data.size) { S.lastChunkAt = now(); S.lastChunkSize = e.data.size; S.chunks.push(e.data); if (sid) putChunk(sid, e.data, seg); } };
   S.recMime = r.mimeType || S.recMime0 || "audio/mp4";
-  r.start(10000); S.rec = r; S.segStart = now();
+  r.start(10000); S.rec = r; S.segStart = now(); S.lastChunkAt = now();
 }
 async function startRecording() {
   if (!navigator.mediaDevices || !window.MediaRecorder) { S.recState = "unavailable"; return; }
   try {
     S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
     S.recMime0 = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
-    S.chunks = []; S.seg = 1; newRecorder(); S.recState = "on";
+    S.chunks = []; S.seg = 1; S.restarts = 0; watchTrack(); newRecorder(); S.recState = "on";
+    S.micLabel = (S.stream.getAudioTracks()[0] || {}).label || "unknown";
   } catch (e) { S.recState = "blocked"; }
 }
+/* Watchdog: iOS can silently stop the microphone, e.g. when audio switches to AirPods.
+   If no audio arrives for 25 s, or the track ends or mutes, the recording restarts on its own. */
+function watchTrack() {
+  const t = S.stream && S.stream.getAudioTracks()[0]; if (!t) return;
+  t.onended = () => restartRecording("microphone ended");
+  t.onmute = () => setTimeout(() => { if (t.muted) restartRecording("microphone muted"); }, 3000);
+}
+let restarting = false;
+async function restartRecording(why) {
+  if (restarting || !S.running || S.recState !== "on") return; restarting = true;
+  try {
+    const old = S.rec, oldStream = S.stream;
+    try { old && old.state !== "inactive" && old.stop(); } catch (e) {}
+    try { oldStream && oldStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+    S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
+    S.micLabel = (S.stream.getAudioTracks()[0] || {}).label || "unknown";
+    S.seg++; S.restarts = (S.restarts || 0) + 1; watchTrack(); newRecorder();
+    if (typeof logLine === "function" && S.log) logLine("Audio restarted (" + why + "), mic: " + S.micLabel);
+    if (S.sid && S.sessionStart && S.key !== "insight") putSession(sessionRecord(false));
+  } catch (e) { if (S.log) logLine("Audio restart failed: " + (e && e.message || e)); }
+  restarting = false;
+}
+setInterval(() => {
+  if (!S.running || S.recState !== "on" || !S.rec) return;
+  if (S.rec.state === "recording" && now() - (S.lastChunkAt || now()) > 25000) restartRecording("no audio for 25 s");
+}, 5000);
 function stopRec(r) { return new Promise(res => { if (!r || r.state === "inactive") return res(); const t = setTimeout(res, 3000); r.onstop = () => { clearTimeout(t); res(); }; try { r.stop(); } catch (e) { clearTimeout(t); res(); } }); }
 async function rotateRecording() {
   if (!S.rec || S.rec.state !== "recording") return;
@@ -363,7 +390,7 @@ async function start() {
   await startRecording();
   S.sessionStart = now(); S.running = true;
   logLine("Session " + S.key + " · " + plan().name + " started " + new Date().toLocaleString("en-GB"));
-  if (S.recState !== "on") logLine("Audio recording: not available on this page");
+  if (S.recState !== "on") logLine("Audio recording: not available on this page"); else logLine("Microphone: " + S.micLabel);
   startBlock(0, false);
   putSession(sessionRecord(false));
   setTimeout(() => say(plan().blocks[0].cue), 1600);
@@ -705,7 +732,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-15-1";
+const APP_VERSION = "2026-10-16-1";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
