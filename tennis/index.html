@@ -202,6 +202,8 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .docs .doc .meta { font-size: .78rem; }
 @media (max-width: 380px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tiles .tile:last-child { grid-column: auto; } .tile .v { font-size: 1.2rem; } }
 
+.btn.recbanner { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20; background: #e5484d; border-color: #e5484d; color: #fff; min-height: 72px; font-size: 1.1rem; }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -307,11 +309,26 @@ async function restartRecording(why) {
     S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
     S.micLabel = (S.stream.getAudioTracks()[0] || {}).label || "unknown";
     S.seg++; S.restarts = (S.restarts || 0) + 1; watchTrack(); newRecorder();
-    if (typeof logLine === "function" && S.log) logLine("Audio restarted (" + why + "), mic: " + S.micLabel);
+    if (S.log) logLine("Audio restarted (" + why + "), mic: " + S.micLabel);
+    if (S.recBroken) { S.recBroken = false; say("Recording resumed."); }
     if (S.sid && S.sessionStart && S.key !== "insight") putSession(sessionRecord(false));
-  } catch (e) { if (S.log) logLine("Audio restart failed: " + (e && e.message || e)); }
+    showRecBanner();
+  } catch (e) {
+    if (!S.recBroken) {   // tell the player once, then wait for a tap or for the app to come back
+      S.recBroken = true; if (S.log) logLine("Recording stopped (" + why + ")");
+      say("Recording stopped. Tap the screen to resume."); showRecBanner();
+    }
+    S.lastChunkAt = now();   // retry again after 25 s, not every 5 s
+  }
   restarting = false;
 }
+function showRecBanner() {
+  let b = document.getElementById("recbanner");
+  if (S.recBroken && S.running) {
+    if (!b) { b = document.createElement("button"); b.id = "recbanner"; b.className = "btn recbanner"; b.textContent = "Recording stopped · tap to resume"; b.onclick = () => restartRecording("tap"); document.body.appendChild(b); }
+  } else if (b) b.remove();
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.running && S.recState === "on" && (S.recBroken || now() - (S.lastChunkAt || 0) > 12000)) restartRecording("back in the app"); });
 setInterval(() => {
   if (!S.running || S.recState !== "on" || !S.rec) return;
   if (S.rec.state === "recording" && now() - (S.lastChunkAt || now()) > 25000) restartRecording("no audio for 25 s");
@@ -732,7 +749,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-16-1";
+const APP_VERSION = "2026-10-16-2";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
