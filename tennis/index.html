@@ -204,6 +204,17 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 
 .btn.recbanner { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 20; background: #e5484d; border-color: #e5484d; color: #fff; min-height: 72px; font-size: 1.1rem; }
 
+/* Serve KPIs */
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.mix { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--line); margin-top: 6px; }
+.mix i { display: block; height: 100%; }
+.mix .net { background: #e5484d; } .mix .long { background: var(--stabilize); } .mix .side { background: var(--develop); }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: .75rem; color: var(--muted); margin-top: 4px; }
+.legend b { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+.hist { width: 100%; border-collapse: collapse; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.hist th, .hist td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+.hist th { color: var(--muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+
 /* Log */
 pre.log { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: .85rem; white-space: pre-wrap; margin: 0; overflow-x: auto; font-variant-numeric: tabular-nums; }
 .toast { color: var(--compete); font-size: .85rem; min-height: 1.2em; }
@@ -641,6 +652,26 @@ async function openDoc(id) {
   return (docCache[id] = doc);
 }
 
+/* ---------------- Serve KPIs (filled from Claude's analysis of the transcripts) ---------------- */
+function serveBlock(list) {
+  if (!list.length) return '<div class="goalrow"><span><b>Serve</b><br><span style="color:var(--muted);font-size:.8rem">No serve analysis yet.</span></span></div>';
+  const last = list[list.length - 1], dt = d => new Date(d + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const mix = m => '<div class="mix"><i class="net" style="width:' + m.net + '%"></i><i class="long" style="width:' + m.long + '%"></i><i class="side" style="width:' + m.side + '%"></i></div><div class="s" style="font-size:.75rem;color:var(--muted)">net ' + m.net + '% · long ' + m.long + '% · side ' + m.side + '%</div>';
+  const tile = (k, v, sub) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>';
+  return '<div class="goalrow" style="display:block"><b>Serve</b> <span style="color:var(--muted);font-size:.8rem">· latest: ' + dt(last.date) + ', ' + last.kind + '</span>' +
+    '<div class="kpis" style="margin-top:10px">' +
+      tile("Flat in", last.flat.in + "%", "goal 50% · " + last.flat.n + " serves") +
+      tile("Kick in", last.kick.in + "%", "goal 80% · " + last.kick.n + " serves") +
+      tile("Double fault", last.df + "%", last.kind === "match" ? "of service points" : "flat miss × kick miss") + '</div>' +
+    '<div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:12px">' +
+      '<div><div class="k" style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Flat · median miss ' + (last.flat.median_miss != null ? last.flat.median_miss + " m" : "–") + '</div>' + mix(last.flat.mix) + '</div>' +
+      '<div><div class="k" style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Kick · median miss ' + (last.kick.median_miss != null ? last.kick.median_miss + " m" : "–") + '</div>' + mix(last.kick.mix) + '</div></div>' +
+    '<div class="legend"><span><b style="background:#e5484d"></b>net</span><span><b style="background:var(--stabilize)"></b>long</span><span><b style="background:var(--develop)"></b>side</span></div>' +
+    (last.note ? '<p class="s" style="color:var(--muted);font-size:.8rem;margin:8px 0 0">' + last.note + '</p>' : '') +
+    '<table class="hist" style="margin-top:10px"><tr><th>Date</th><th>Type</th><th>Flat</th><th>Kick</th><th>DF</th></tr>' +
+      list.slice().reverse().map(r => '<tr><td>' + dt(r.date) + '</td><td>' + r.kind + '</td><td>' + r.flat.in + '%</td><td>' + r.kick.in + '%</td><td>' + r.df + '%</td></tr>').join("") + '</table></div>';
+}
+
 /* ---------------- Rendering ---------------- */
 function toast(t) { const el = $("toast"); if (el) { el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => { el.textContent = ""; }, 3500); } }
 function tags(st) { return st.map(s => '<span class="tag ' + s + '">' + s + "</span>").join(""); }
@@ -694,7 +725,9 @@ function render() {
     activity().then(a => {
       const g = (name, n, need, test) => '<div class="goalrow"><span><b>' + name + '</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + test + '</span></span><span class="lv">' + (n < need ? "–" : "–") + '</span><span class="s" style="color:var(--muted);font-size:.8rem;grid-column:1/-1">' + n + ' session' + (n === 1 ? "" : "s") + ' so far · ' + (n < need ? (need - n) + " more until first level" : "waiting for analysis") + '</span></div>';
       $("db").innerHTML = '<div class="tiles"><div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div></div><div class="tile"><div class="k">6-week avg</div><div class="v">' + fmtHM(a.avg6) + '</div><div class="s">h per week</div></div><div class="tile"><div class="k">Activity</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div>' + spark(a.weeks) + '</div></div>' +
-        g("Serve", a.serveN, 5, "Graduation: kick 8/10, first serve 50%") + g("Depth", a.depthN, 5, "Time to 20 and longest rally") + g("Steering", a.steerN, 5, "Graduation: steering test 8/10");
+        '<div id="serve"></div>' + g("Depth", a.depthN, 5, "Time to 20 and longest rally") + g("Steering", a.steerN, 5, "Graduation: steering test 8/10");
+      openDoc("stats").then(st => { const el = $("serve"); if (el) el.innerHTML = serveBlock(st.serve || []); })
+        .catch(e => { const el = $("serve"); if (el) el.innerHTML = '<div class="goalrow"><span><b>Serve</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + (e.message === "nokey" ? "Connect Google Drive under Saved sessions to see your serve numbers." : "No serve analysis yet.") + '</span></span></div>'; });
     });
   } else if (S.view === "doc") {
     const d = DOCS.find(x => x.id === S.doc), di = DOCS.indexOf(d);
@@ -795,7 +828,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-18-1";
+const APP_VERSION = "2026-10-18-2";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
