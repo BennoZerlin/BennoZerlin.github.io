@@ -653,6 +653,15 @@ async function openDoc(id) {
 }
 
 /* ---------------- Serve KPIs (filled from Claude's analysis of the transcripts) ---------------- */
+// Live numbers from tca_stats.json in Drive (via the TCA Upload script); the copy in the app is the fallback
+async function loadStats() {
+  try {
+    const u = new URL(driveUrl()); u.searchParams.set("f", "stats"); u.searchParams.set("t", Date.now());
+    const j = await (await fetch(u.toString(), { redirect: "follow", cache: "no-store" })).json();
+    if (j && Array.isArray(j.serve)) return j;
+  } catch (e) {}
+  return openDoc("stats");
+}
 function serveBlock(list) {
   if (!list.length) return '<div class="goalrow"><span><b>Serve</b><br><span style="color:var(--muted);font-size:.8rem">No serve analysis yet.</span></span></div>';
   const last = list[list.length - 1], dt = d => new Date(d + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -726,7 +735,7 @@ function render() {
       const g = (name, n, need, test) => '<div class="goalrow"><span><b>' + name + '</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + test + '</span></span><span class="lv">' + (n < need ? "–" : "–") + '</span><span class="s" style="color:var(--muted);font-size:.8rem;grid-column:1/-1">' + n + ' session' + (n === 1 ? "" : "s") + ' so far · ' + (n < need ? (need - n) + " more until first level" : "waiting for analysis") + '</span></div>';
       $("db").innerHTML = '<div class="tiles"><div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div></div><div class="tile"><div class="k">6-week avg</div><div class="v">' + fmtHM(a.avg6) + '</div><div class="s">h per week</div></div><div class="tile"><div class="k">Activity</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div>' + spark(a.weeks) + '</div></div>' +
         '<div id="serve"></div>' + g("Depth", a.depthN, 5, "Time to 20 and longest rally") + g("Steering", a.steerN, 5, "Graduation: steering test 8/10");
-      openDoc("stats").then(st => { const el = $("serve"); if (el) el.innerHTML = serveBlock(st.serve || []); })
+      loadStats().then(st => { const el = $("serve"); if (el) el.innerHTML = serveBlock(st.serve || []); })
         .catch(e => { const el = $("serve"); if (el) el.innerHTML = '<div class="goalrow"><span><b>Serve</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + (e.message === "nokey" ? "Connect Google Drive under Saved sessions to see your serve numbers." : "No serve analysis yet.") + '</span></span></div>'; });
     });
   } else if (S.view === "doc") {
@@ -828,7 +837,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-18-2";
+const APP_VERSION = "2026-10-18-3";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
