@@ -297,11 +297,13 @@ async function startRecording() {
 function watchTrack() {
   const t = S.stream && S.stream.getAudioTracks()[0]; if (!t) return;
   t.onended = () => restartRecording("microphone ended");
-  t.onmute = () => setTimeout(() => { if (t.muted) restartRecording("microphone muted"); }, 3000);
+  t.onmute = null;   // iOS mutes briefly while a cue is spoken; that is not an interruption
 }
 let restarting = false;
 async function restartRecording(why) {
-  if (restarting || !S.running || S.recState !== "on") return; restarting = true;
+  if (restarting || !S.running || S.recState !== "on") return;
+  try { if (why !== "tap" && speechSynthesis.speaking) { setTimeout(() => restartRecording(why), 2000); return; } } catch (e) {}
+  restarting = true;
   try {
     const old = S.rec, oldStream = S.stream;
     try { old && old.state !== "inactive" && old.stop(); } catch (e) {}
@@ -331,7 +333,7 @@ function showRecBanner() {
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.running && S.recState === "on" && (S.recBroken || now() - (S.lastChunkAt || 0) > 12000)) restartRecording("back in the app"); });
 setInterval(() => {
   if (!S.running || S.recState !== "on" || !S.rec) return;
-  if (S.rec.state === "recording" && now() - (S.lastChunkAt || now()) > 25000) restartRecording("no audio for 25 s");
+  if (S.rec.state === "recording" && now() - (S.lastChunkAt || now()) > 40000) restartRecording("no audio for 40 s");
 }, 5000);
 function stopRec(r) { return new Promise(res => { if (!r || r.state === "inactive") return res(); const t = setTimeout(res, 3000); r.onstop = () => { clearTimeout(t); res(); }; try { r.stop(); } catch (e) { clearTimeout(t); res(); } }); }
 async function rotateRecording() {
@@ -500,18 +502,33 @@ async function postDrive(payload) {
 async function uploadSession(rec) {
   if (!driveUrl() || rec.uploaded) return false;
   try {
-    const files = await filesFor(rec);
-    for (const f of files) await postDrive({ name: f.name, mime: f.type || "application/octet-stream", data: await b64(f) });
+    const files = await filesFor(rec), sent = rec.sentFiles || [];
+    S.upProgress = { name: rec.id, done: files.filter(f => sent.includes(f.name)).length, total: files.length }; showUpProgress();
+    for (const f of files) {
+      if (sent.includes(f.name) && !/\.txt$/.test(f.name)) continue;   // already in Drive (the log is always refreshed)
+      await postDrive({ name: f.name, mime: f.type || "application/octet-stream", data: await b64(f) });
+      if (!sent.includes(f.name)) sent.push(f.name);
+      rec.sentFiles = sent; await putSession(rec);
+      S.upProgress.done = files.filter(x => sent.includes(x.name)).length; showUpProgress();
+    }
     rec.uploaded = Date.now(); rec.uploadError = ""; await putSession(rec); return true;
   } catch (e) { rec.uploadError = String(e && e.message || e); await putSession(rec); return false; }
+  finally { S.upProgress = null; showUpProgress(); }
+}
+function showUpProgress() {
+  const el = $("upstat"); if (!el) return;
+  el.textContent = S.upProgress ? "Uploading to Drive: file " + Math.min(S.upProgress.done + 1, S.upProgress.total) + " of " + S.upProgress.total + " · keep the app open" : "";
 }
 let syncing = false;
 async function syncDrive(show) {
-  if (syncing || !driveUrl()) return; syncing = true;
+  if (!driveUrl()) return;
+  if (syncing) { if (show) toast(S.upProgress ? "Already uploading: file " + Math.min(S.upProgress.done + 1, S.upProgress.total) + " of " + S.upProgress.total + "." : "Already uploading…"); return; }
+  syncing = true;
   try {
     const l = (await allSessions()).filter(r => !r.uploaded && r.id !== S.sid && (r.done || r.type === "insight" || r.start < Date.now() - 3 * 3600e3));
     let n = 0; for (const r of l) if (await uploadSession(r)) n++;
-    if (show || n) toast(n ? "Uploaded " + n + (n > 1 ? " sessions" : " session") + " to Drive" : (l.length ? "Upload failed. Will retry." : "Everything is in Drive."));
+    const err = l.map(r => r.uploadError).filter(Boolean)[0];
+    if (show || n) toast(n ? "Uploaded " + n + (n > 1 ? " sessions" : " session") + " to Drive" : (l.length ? "Upload failed (" + (err || "no connection") + "). It continues where it stopped." : "Everything is in Drive."));
   } finally { syncing = false; if (S.view === "menu" || S.view === "saved") render(); }
 }
 async function testDrive(u) {
@@ -635,7 +652,7 @@ function render() {
         ['Progress', 'This week', '6 weeks'].map(k => '<div class="tile"><div class="k">' + k + '</div><div class="v">–</div><div class="s">&nbsp;</div><div class="bar tbar"><i></i></div></div>').join("") + '</div></button></div>' +
       '<div class="sec"><div class="eyebrow">Training</div><button class="btn primary big" id="train">Start a training session</button><button class="btn wide slim" id="ins">Record an insight</button></div>' +
       '<div class="sec docs"><div class="eyebrow">Documents</div>' + DOCS.map(d => '<button class="doc" data-doc="' + d.id + '"><span><span class="name">' + d.name + '</span><br><span class="meta">' + d.meta + '</span></span><span class="go" aria-hidden="true">›</span></button>').join("") + '</div>' +
-      '<div class="toast" id="toast"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>' +
+      '<div class="toast" id="toast"></div><div class="status" id="upstat"></div><div class="row"><button class="btn ghost" id="saved">Saved sessions</button></div>' +
       '<div class="row" style="align-items:center;justify-content:space-between"><span class="dv-meta">Version ' + APP_VERSION + '</span><button class="btn ghost" id="reload" style="flex:0 0 auto;min-height:44px;padding:10px 16px">Reload app</button></div>';
     $("dash").onclick = () => { S.view = "dashboard"; render(); };
     $("train").onclick = () => { S.view = "training"; render(); };
@@ -692,7 +709,7 @@ function render() {
     app.innerHTML = '<header><div class="eyebrow">On this phone</div><h1>Saved sessions</h1><p class="sub">Saved automatically. Export sends recording and log to Files in one go.</p></header>' +
       '<div class="status"><div><b>Google Drive</b> · ' + (driveUrl() ? '<span class="ok">Connected. Sessions upload automatically.</span>' : 'Not connected') + '</div>' +
       '<div class="row" style="margin-top:8px"><input id="du" placeholder="Paste your script link" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid #333;background:transparent;color:inherit;font:inherit" value="' + (driveUrl() ? "••• connected •••" : "") + '"><button class="btn" id="dsave">' + (driveUrl() ? "Change" : "Connect") + '</button>' + (driveUrl() ? '<button class="btn" id="dsync">Upload now</button>' : '') + '</div></div>' +
-      '<div class="row"><button class="btn primary" id="exn">Export all new</button></div><div id="list" class="sessions"></div><div class="toast" id="toast"></div>' +
+      '<div class="status" id="upstat"></div><div class="row"><button class="btn primary" id="exn">Export all new</button></div><div id="list" class="sessions"></div><div class="toast" id="toast"></div>' +
       '<div class="row"><button class="btn ghost" id="home">Back</button></div>';
     $("home").onclick = () => { S.view = "menu"; render(); };
     $("du").onfocus = () => { if ($("du").value.startsWith("•")) $("du").value = ""; };
@@ -703,7 +720,7 @@ function render() {
       if (!l.length) { list.innerHTML = '<p class="note">No sessions yet.</p>'; $("exn").disabled = true; return; }
       $("exn").onclick = () => exportSessions(l.filter(r => !r.exported));
       $("exn").disabled = !l.some(r => !r.exported);
-      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(effSecs(r)) + (r.actualSecs ? " (entered)" : "") + (r.done ? "" : " · interrupted") + (r.type !== "insight" && effSecs(r) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? " · not uploaded yet" : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px">' + (r.type === "insight" ? "" : '<button class="btn" data-len="' + r.id + '">Length</button>') + '<button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(effSecs(r)) + (r.actualSecs ? " (entered)" : "") + (r.done ? "" : " · interrupted") + (r.type !== "insight" && effSecs(r) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? (r.sentFiles && r.sentFiles.length ? " · " + r.sentFiles.length + " files in Drive, rest pending" : " · not uploaded yet") : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px">' + (r.type === "insight" ? "" : '<button class="btn" data-len="' + r.id + '">Length</button>') + '<button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
       list.querySelectorAll("[data-len]").forEach(b => b.onclick = () => { S.editId = b.dataset.len; S.view = "editlen"; render(); });
       list.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => exportSessions(l.filter(r => r.id === b.dataset.ex)));
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
@@ -778,7 +795,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-16-3";
+const APP_VERSION = "2026-10-18-1";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
@@ -818,6 +835,7 @@ addEventListener("touchend", e => {
 /* ---------------- Boot ---------------- */
 render();
 checkUpdate();
+setInterval(showUpProgress, 1000);
 setTimeout(pruneAudio, 5000);
 setTimeout(() => syncDrive(false), 1500);
 (async () => { try { if (window.claude && claude.use) S.downloads = await claude.use("downloads"); } catch (e) { S.downloads = null; } })();
