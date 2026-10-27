@@ -689,6 +689,7 @@ function serveBlock(list) {
   const mix = m => '<div class="mix"><i class="net" style="width:' + m.net + '%"></i><i class="long" style="width:' + m.long + '%"></i><i class="side" style="width:' + m.side + '%"></i></div><div class="s" style="font-size:.75rem;color:var(--muted)">net ' + m.net + '% · long ' + m.long + '% · side ' + m.side + '%</div>';
   const tile = (k, v, sub) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>';
   const src = r => dt(r.date) + " " + r.kind;
+  const nserves = r => { const n = (r.flat.n || 0) + (r.kick.n || 0); return n ? String(n) : (r.service_points ? "≈" + r.service_points + " pts" : "–"); };
   return '<div class="goalrow" style="display:block"><b>Serve</b> <span style="color:var(--muted);font-size:.8rem">· latest: ' + dt(last.date) + ', ' + last.kind + (last.score ? " " + last.score : "") + '</span>' +
     '<div class="kpis" style="margin-top:10px">' +
       tile("Flat in", pc(lp.flat.in), "goal 50% · " + (lp.flat.n || 0) + " serves" + (lp !== last ? " · " + src(lp) : "")) +
@@ -699,8 +700,8 @@ function serveBlock(list) {
       '<div><div class="k" style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600">Kick · median miss ' + (lp.kick.median_miss != null ? lp.kick.median_miss + " m" : "–") + '</div>' + mix(lp.kick.mix) + '</div></div>' +
     '<div class="legend"><span><b style="background:#e5484d"></b>net</span><span><b style="background:var(--stabilize)"></b>long</span><span><b style="background:var(--develop)"></b>side</span></div>' +
     (last.note ? '<p class="s" style="color:var(--muted);font-size:.8rem;margin:8px 0 0">' + last.note + '</p>' : '') +
-    '<table class="hist" style="margin-top:10px"><tr><th>Date</th><th>Type</th><th>Flat</th><th>Kick</th><th>DF</th></tr>' +
-      list.slice().reverse().map(r => '<tr><td>' + dt(r.date) + '</td><td>' + r.kind + '</td><td>' + pc(r.flat.in) + '</td><td>' + pc(r.kick.in) + '</td><td>' + dfv(r) + '</td></tr>').join("") + '</table></div>';
+    '<table class="hist" style="margin-top:10px"><tr><th>Date</th><th>Type</th><th>Serves</th><th>Flat</th><th>Kick</th><th>DF</th></tr>' +
+      list.slice().reverse().map(r => '<tr><td>' + dt(r.date) + '</td><td>' + r.kind + '</td><td>' + nserves(r) + '</td><td>' + pc(r.flat.in) + '</td><td>' + pc(r.kick.in) + '</td><td>' + dfv(r) + '</td></tr>').join("") + '</table></div>';
 }
 
 /* ---------------- Rendering ---------------- */
@@ -879,7 +880,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-27-2";
+const APP_VERSION = "2026-10-27-3";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
