@@ -616,6 +616,24 @@ function lengthEditor(r) {
   return '<div class="row" style="align-items:center"><label for="len" class="sub" style="margin:0">Real length</label><input id="len" type="number" inputmode="numeric" min="1" max="300" value="' + Math.round(effSecs(r) / 60) + '" style="width:5.5em;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:inherit;font:inherit;font-size:1.1rem"><span class="sub" style="margin:0">min</span><button class="btn" id="lensave" style="flex:0 0 auto">Save</button></div>';
 }
 
+/* ---------------- Session added afterwards, without a recording ---------------- */
+async function addManualSession(key, dateStr, timeStr, minutes, note) {
+  const m = Math.round(Number(minutes));
+  if (!PLAN[key]) { toast("Pick the session type."); return false; }
+  if (!m || m < 1 || m > 300) { toast("Enter the length in minutes, 1 to 300."); return false; }
+  const start = new Date((dateStr || "") + "T" + (timeStr || "12:00")).getTime();
+  if (!start || isNaN(start)) { toast("Pick the date."); return false; }
+  if (start > now()) { toast("That date is in the future."); return false; }
+  const p = PLAN[key], d = new Date(start);
+  const log = "TCA · Session " + key + " · " + p.name + "\nAdded afterwards, not recorded (no audio)\nDate: " + d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) +
+    "\nLength: " + m + " min\n" + (note ? "\nWhat we did:\n" + note.trim() + "\n" : "");
+  const r = { id: "m" + start, key, name: p.name, start, secs: 0, actualSecs: m * 60, manual: true, mime: "", done: true, log, exported: false, uploaded: 0 };
+  await putSession(r);
+  if (driveUrl()) { const ok = await uploadSession(r); toast(ok ? "Session added and saved to Drive." : "Session added. Drive upload retries later."); }
+  else toast("Session added.");
+  return true;
+}
+
 /* ---------------- Activity (from sessions saved on this phone) ---------------- */
 const WEEK_GOAL_H = 4;
 const MIN_SECS = 15 * 60;   // shorter sessions are kept, but don't count
@@ -725,7 +743,9 @@ function render() {
     app.innerHTML = '<header><div class="eyebrow">Training</div><h1>Pick a session</h1><p class="sub">Cues play through your AirPods.</p></header>' +
       '<div class="sessions">' + Object.keys(PLAN).map(k => { const p = PLAN[k]; return '<button class="sess" id="s-' + k + '" data-k="' + k + '"><span class="letter">' + k + '</span><span><span class="name">' + p.name + '</span><br><span class="meta">' + p.with + '</span><br><span class="meta focus ' + p.status[0] + '">' + p.focus + '</span></span></button>'; }).join("") + "</div>" +
       '<p class="note">Before you start: Low Power Mode off, AirPods in, phone in the shade. The screen stays on, and every session is saved and uploaded automatically.</p>' +
+      '<div class="row"><button class="btn wide slim" id="addm">Trained without recording? Add it</button></div>' +
       '<div class="row"><button class="btn ghost" id="home">Back</button></div>';
+    $("addm").onclick = () => { S.addBack = "training"; S.view = "addsess"; render(); };
     app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
     $("home").onclick = () => { S.view = "menu"; render(); };
   } else if (S.view === "dashboard") {
@@ -751,9 +771,10 @@ function render() {
     app.innerHTML = '<header><div class="eyebrow">On this phone</div><h1>Saved sessions</h1><p class="sub">Saved automatically. Export sends recording and log to Files in one go.</p></header>' +
       '<div class="status"><div><b>Google Drive</b> · ' + (driveUrl() ? '<span class="ok">Connected. Sessions upload automatically.</span>' : 'Not connected') + '</div>' +
       '<div class="row" style="margin-top:8px"><input id="du" placeholder="Paste your script link" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid #333;background:transparent;color:inherit;font:inherit" value="' + (driveUrl() ? "••• connected •••" : "") + '"><button class="btn" id="dsave">' + (driveUrl() ? "Change" : "Connect") + '</button>' + (driveUrl() ? '<button class="btn" id="dsync">Upload now</button>' : '') + '</div></div>' +
-      '<div class="status" id="upstat"></div><div class="row"><button class="btn primary" id="exn">Export all new</button></div><div id="list" class="sessions"></div><div class="toast" id="toast"></div>' +
+      '<div class="status" id="upstat"></div><div class="row"><button class="btn primary" id="exn">Export all new</button><button class="btn" id="addm">Add without recording</button></div><div id="list" class="sessions"></div><div class="toast" id="toast"></div>' +
       '<div class="row"><button class="btn ghost" id="home">Back</button></div>';
     $("home").onclick = () => { S.view = "menu"; render(); };
+    $("addm").onclick = () => { S.addBack = "saved"; S.view = "addsess"; render(); };
     $("du").onfocus = () => { if ($("du").value.startsWith("•")) $("du").value = ""; };
     $("dsave").onclick = async () => { const v = $("du").value.trim(); if (!v || v.startsWith("•")) { toast("Paste the link first."); return; } toast("Checking…"); const err = await testDrive(v); if (err) { toast(err); return; } setDriveUrl(v); toast("Connected."); render(); syncDrive(true); };
     if ($("dsync")) $("dsync").onclick = () => { toast("Uploading…"); syncDrive(true); };
@@ -762,7 +783,7 @@ function render() {
       if (!l.length) { list.innerHTML = '<p class="note">No sessions yet.</p>'; $("exn").disabled = true; return; }
       $("exn").onclick = () => exportSessions(l.filter(r => !r.exported));
       $("exn").disabled = !l.some(r => !r.exported);
-      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(effSecs(r)) + (r.actualSecs ? " (entered)" : "") + (r.done ? "" : " · interrupted") + (r.type !== "insight" && effSecs(r) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? (r.sentFiles && r.sentFiles.length ? " · " + r.sentFiles.length + " files in Drive, rest pending" : " · not uploaded yet") : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px">' + (r.type === "insight" ? "" : '<button class="btn" data-len="' + r.id + '">Length</button>') + '<button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
+      list.innerHTML = l.map(r => '<div class="sess" style="cursor:default"><span class="letter"' + (r.type === "insight" ? ' style="font-size:1rem;color:var(--ball)">Insight' : '>' + r.key) + '</span><span><span class="name">' + new Date(r.start).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + '</span><br><span class="meta">' + fmtH(effSecs(r)) + (r.manual ? " · not recorded" : (r.actualSecs ? " (entered)" : "")) + (r.done ? "" : " · interrupted") + (r.type !== "insight" && effSecs(r) < MIN_SECS ? " · under 15 min, not counted" : "") + (r.uploaded ? " · in Drive" : (driveUrl() ? (r.sentFiles && r.sentFiles.length ? " · " + r.sentFiles.length + " files in Drive, rest pending" : " · not uploaded yet") : "")) + (r.exported ? " · exported" : "") + (r.audioPruned ? " · audio only in Drive" : "") + '</span></span><span class="row" style="gap:6px">' + (r.type === "insight" ? "" : '<button class="btn" data-len="' + r.id + '">Length</button>') + '<button class="btn" data-ex="' + r.id + '">Export</button><button class="btn ghost" data-del="' + r.id + '">Delete</button></span></div>').join("");
       list.querySelectorAll("[data-len]").forEach(b => b.onclick = () => { S.editId = b.dataset.len; S.view = "editlen"; render(); });
       list.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => exportSessions(l.filter(r => r.id === b.dataset.ex)));
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
@@ -804,6 +825,23 @@ function render() {
     $("ex").onclick = async () => { const l = await allSessions(); exportSessions(l.filter(r => r.id === S.sid)); };
     $("home").onclick = () => { S.view = "menu"; S.chunks = []; render(); };
     $("lensave").onclick = () => setActualLength(S.sid, $("len").value);
+  } else if (S.view === "addsess") {
+    const pad = n => String(n).padStart(2, "0"), t = new Date(), today = t.getFullYear() + "-" + pad(t.getMonth() + 1) + "-" + pad(t.getDate());
+    const fld = 'padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:inherit;font:inherit;font-size:1.05rem';
+    S.addKey = S.addKey || "B";
+    app.innerHTML = '<header><div class="eyebrow">Training log</div><h1>Add a session</h1><p class="sub">For a session you played without recording. It counts on the dashboard like any other; serve numbers need a recording.</p></header>' +
+      '<div class="sec"><div class="eyebrow">Session type</div><div class="row" id="keys">' + Object.keys(PLAN).map(k => '<button class="btn ghost topic' + (S.addKey === k ? " on" : "") + '" data-k="' + k + '">' + k + ' · ' + PLAN[k].name + '</button>').join("") + '</div></div>' +
+      '<div class="sec"><div class="row" style="align-items:center"><label for="ad" class="sub" style="margin:0;min-width:4.5em">Date</label><input id="ad" type="date" max="' + today + '" value="' + (S.addDate || today) + '" style="' + fld + '"></div>' +
+      '<div class="row" style="align-items:center"><label for="at" class="sub" style="margin:0;min-width:4.5em">Start</label><input id="at" type="time" value="' + (S.addTime || "10:00") + '" style="' + fld + '"></div>' +
+      '<div class="row" style="align-items:center"><label for="am" class="sub" style="margin:0;min-width:4.5em">Length</label><input id="am" type="number" inputmode="numeric" min="1" max="300" value="' + (S.addMin || 60) + '" style="width:5.5em;' + fld + '"><span class="sub" style="margin:0">min</span></div>' +
+      '<div class="row"><textarea id="an" rows="4" placeholder="What you did, e.g. long rallies, combinations at the end. Who with, where." style="flex:1;min-width:0;' + fld + '">' + (S.addNote || "") + '</textarea></div></div>' +
+      '<div class="row"><button class="btn primary" id="asave">Add session</button></div><div class="toast" id="toast"></div>' +
+      '<div class="row"><button class="btn ghost" id="back">Back</button></div>';
+    const keep = () => { S.addDate = $("ad").value; S.addTime = $("at").value; S.addMin = $("am").value; S.addNote = $("an").value; };
+    app.querySelectorAll("#keys [data-k]").forEach(b => b.onclick = () => { keep(); S.addKey = b.dataset.k; render(); });
+    const leave = () => { S.addDate = S.addTime = S.addMin = S.addNote = ""; S.addKey = ""; S.view = S.addBack || "saved"; render(); };
+    $("back").onclick = leave;
+    $("asave").onclick = async () => { keep(); $("asave").disabled = true; if (await addManualSession(S.addKey, S.addDate, S.addTime, S.addMin, S.addNote)) setTimeout(() => { S.addBack = "saved"; leave(); }, 1200); else $("asave").disabled = false; };
   } else if (S.view === "editlen") {
     allSessions().then(l => {
       const r = l.find(x => x.id === S.editId); if (!r) { S.view = "saved"; render(); return; }
@@ -837,7 +875,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-18-3";
+const APP_VERSION = "2026-10-27-1";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
