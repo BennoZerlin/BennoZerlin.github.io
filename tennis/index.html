@@ -54,6 +54,35 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .note { color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); padding-top: 12px; }
 
 /* Session overview */
+.lens { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { min-width: 52px; min-height: 44px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font: 600 1.05rem var(--font-display); color: var(--fg); }
+.chip.on { background: var(--clay); border-color: var(--clay); color: #111; }
+.tplchip { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--panel); }
+.tplchip button { background: none; border: 0; color: var(--fg); font: inherit; font-size: .9rem; padding: 10px 12px; min-height: 44px; }
+.tplchip.on { border-color: var(--ball); } .tplchip .x { color: var(--muted); border-left: 1px solid var(--line); }
+.tl { display: flex; height: 30px; border-radius: 8px; overflow: hidden; gap: 2px; }
+.tl i { display: flex; align-items: center; justify-content: center; min-width: 6px; }
+.tl b { font: 700 .85rem var(--font-display); color: #111; }
+.ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ol li { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+.olh { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; }
+.olt { font-family: var(--font-display); color: var(--muted); font-variant-numeric: tabular-nums; }
+.oln { font-weight: 600; min-width: 0; }
+.olm { font: 700 1.5rem var(--font-display); color: var(--c); font-variant-numeric: tabular-nums; }
+.old { color: var(--muted); font-size: .82rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.olc { display: flex; gap: 6px; align-items: center; }
+.olc span { flex: 1; }
+.olc button { min-width: 44px; min-height: 40px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--fg); font-size: 1.1rem; }
+.olc button:disabled { opacity: .3; }
+.linkbtn { background: none; border: 1px dashed var(--line); border-radius: 999px; color: var(--fg); font: inherit; font-size: .85rem; padding: 6px 10px; margin: 2px 0; }
+.exl { display: grid; gap: 8px; }
+.ex { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 10px; }
+.ex.on { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+.exb { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; width: 100%; text-align: left; background: none; border: 0; color: var(--fg); font: inherit; padding: 12px; }
+.exn { font-weight: 600; } .exm { font: 700 1.2rem var(--font-display); color: var(--c); }
+.exd { grid-column: 1 / -1; color: var(--muted); font-size: .82rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.stick { position: sticky; bottom: 0; background: var(--bg); padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+.field { padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: inherit; font: inherit; font-size: 1rem; box-sizing: border-box; width: 100%; }
 .blocks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .blocks li { display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .blocks .t { font-family: var(--font-display); font-size: 1.15rem; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -224,28 +253,73 @@ pre.log { background: var(--panel); border: 1px solid var(--line); border-radius
 
 <script>
 /* ---------------- Plan: Phase 1, valid Oct 2026 – end Q1 2027 ---------------- */
+/* Exercise library. min = standard length, lo = shortest useful length, drop = order in which
+   blocks are left out when a session is short (higher goes first, 0 never). tip = spoken cue after "name, N minutes". */
+const CATS = { warm: ["Warm-up", "#8a948f"], ground: ["Groundstrokes", "#9cc0ea"], dir: ["Direction", "#97d39a"], match: ["Match play", "#d8693a"], serve: ["Serve", "#f0d27a"], coach: ["Coach", "#c9a0f0"], own: ["Own", "#f0907f"] };
+const LIB = [
+  { id: "coach", cat: "coach", name: "Coach session", min: 60, lo: 15, drop: 0, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", tip: "Focus engine: loose wrist, let the racket swing." },
+  { id: "connect", cat: "warm", name: "Connect", min: 10, lo: 5, drop: 0, desc: "Mini-tennis, then slow deep rally. A few balls with the three-finger grip; wrist hold between balls.", tip: "Slow arm, clean contact, every ball past the service line." },
+  { id: "deep", cat: "ground", name: "Deep consistency", min: 10, lo: 7, drop: 4, desc: "Forehand first, then bring in the backhand. Game: 50 or 100 ball rally, or deep middle first to 20.", tip: "Forehand first, then the backhand." },
+  { id: "dirtrain", cat: "dir", name: "Direction training", min: 10, lo: 7, drop: 3, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line. Plus the steering test, once or twice: rally down your forehand line, two balls down the line, the third crosscourt from the forehand corner. Counts past the service line and inside the leftmost 2 m. 10 tries, say the count.", tip: "Find the cross angle. Steering test once or twice: two down the line, third one crosscourt. Say the count." },
+  { id: "dirpress", cat: "dir", name: "Direction under pressure", min: 10, lo: 8, drop: 9, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", tip: "Deep crosscourt when you are pushed wide." },
+  { id: "match", cat: "match", name: "Match play", min: 20, lo: 8, drop: 2, desc: "Tiebreaks, match tiebreaks or a set with the Match Card. Deep ball wins count double. Call every double fault, and \"first out\" when the first serve misses.", tip: "Three deep balls win the point. Call your faults." },
+  { id: "setup", cat: "warm", name: "Set-up and warm-up", min: 5, lo: 3, drop: 0, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", tip: "Shoulder warm-up, shadow serves." },
+  { id: "tprac", cat: "serve", name: "Target practice", min: 20, lo: 8, drop: 5, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", tip: "Ten serves per target. From the knees, core through the ball." },
+  { id: "tseq", cat: "serve", name: "Target sequence", min: 35, lo: 10, drop: 1, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating. Call in or out and the miss in metres.", tip: "Flat down the T twice, kick wide twice, then switch sides. Call every serve." },
+  { id: "loosen", cat: "warm", name: "Loosen", min: 5, lo: 3, drop: 0, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", tip: "Grip pressure three out of ten. Listen for the swoosh." },
+  { id: "whip", cat: "ground", name: "Drop-feed whip", min: 15, lo: 6, drop: 3, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", tip: "Three finger grip, early preparation, breathe out through contact." },
+  { id: "slowball", cat: "ground", name: "Slow ball off the wall", min: 10, lo: 6, drop: 9, desc: "Play it soft, let it come back slow, accelerate through it with the whip.", tip: "Stay relaxed, let the racket swing." },
+  { id: "wallserve", cat: "serve", name: "Serve targets (wall)", min: 30, lo: 6, drop: 4, desc: "Target on the wall at T height: flat down the T twice, kick down the T twice.", tip: "Flat down the T twice, kick down the T twice." }
+];
 const PLAN = {
-  A: { name: "Coach Focus Training", status: ["develop"], with: "Coach · 60 min · once a week", focus: "Develop · current focus: engine",
-       blocks: [ { name: "Coach session", min: 60, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", cue: "Coach session. Sixty minutes. Focus engine: loose wrist, let the racket swing." } ] },
-  B: { name: "Practice with F&F", status: ["stabilize", "compete"], with: "Friends and family · 60 min · every week", focus: "Stabilize + Compete · current focus: depth and steering",
-       blocks: [
-         { name: "Connect", min: 10, desc: "Mini-tennis, then slow deep rally. A few balls with the three-finger grip; wrist hold between balls.", cue: "Connect. Ten minutes. Slow arm, clean contact, every ball past the service line." },
-         { name: "Deep consistency", min: 10, desc: "Forehand first, then bring in the backhand. Game: 50 or 100 ball rally, or deep middle first to 20.", cue: "Deep consistency. Ten minutes. Forehand first, then the backhand." },
-         { name: "Direction training", min: 10, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line. Plus the steering test, once or twice: rally down your forehand line, two balls down the line, the third crosscourt from the forehand corner. Counts past the service line and inside the leftmost 2 m. 10 tries, say the count.", cue: "Direction training. Ten minutes. Find the cross angle. Steering test once or twice: two down the line, third one crosscourt. Say the count." },
-         { name: "Direction under pressure", min: 10, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", cue: "Direction under pressure. Ten minutes. Deep crosscourt when you are pushed wide." },
-         { name: "Match play", min: 20, desc: "Tiebreaks or match tiebreaks with the Match Card. Deep ball wins count double.", cue: "Match play. Twenty minutes. Three deep balls win the point." } ] },
-  C: { name: "Serve Session", status: ["stabilize"], with: "Alone, on court · 60 min · every week", focus: "Stabilize · current focus: kick and flat T",
-       blocks: [
-         { name: "Set-up and warm-up", min: 5, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", cue: "Set up and warm up. Five minutes." },
-         { name: "Target practice", min: 20, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", cue: "Target practice. Twenty minutes. Ten serves per target. From the knees, core through the ball." },
-         { name: "Target sequence", min: 35, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating.", cue: "Target sequence. Thirty five minutes. Flat down the T twice, kick wide twice, then switch sides." } ] },
-  D: { name: "Tennis Wall Session", status: ["develop", "stabilize"], with: "Alone · 60 min · every second week", focus: "Develop + Stabilize · current focus: engine and serve",
-       blocks: [
-         { name: "Loosen", min: 5, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", cue: "Loosen. Five minutes. Grip pressure three out of ten. Listen for the swoosh." },
-         { name: "Drop-feed whip", min: 15, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", cue: "Drop feed whip. Fifteen minutes. Three finger grip, early preparation, breathe out through contact." },
-         { name: "Slow ball off the wall", min: 10, desc: "Play it soft, let it come back slow, accelerate through it with the whip.", cue: "Slow ball off the wall. Ten minutes. Stay relaxed, let the racket swing." },
-         { name: "Serve targets", min: 30, desc: "Target on the wall at T height: flat down the T twice, kick down the T twice.", cue: "Serve targets. Thirty minutes. Flat down the T twice, kick down the T twice." } ] }
+  A: { name: "Coach Focus Training", def: 60, status: ["develop"], with: "Coach · 60 min · once a week", focus: "Develop · current focus: engine", ids: ["coach"] },
+  B: { name: "Practice with F&F", def: 60, status: ["stabilize", "compete"], with: "Friends and family · 60 min · every week", focus: "Stabilize + Compete · current focus: depth and steering", ids: ["connect", "deep", "dirtrain", "dirpress", "match"] },
+  C: { name: "Serve Session", def: 30, status: ["stabilize"], with: "Alone, on court · 30 min · every week", focus: "Stabilize · current focus: kick and flat T", ids: ["setup", "tprac", "tseq"] },
+  D: { name: "Tennis Wall Session", def: 20, status: ["develop", "stabilize"], with: "Alone · 20 min · every second week", focus: "Develop + Stabilize · current focus: engine and serve", ids: ["loosen", "whip", "slowball", "wallserve"] }
 };
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+const ownEx = () => lsGet("tca-ownex", []);
+const allEx = () => LIB.concat(ownEx());
+const exById = id => allEx().find(x => x.id === id);
+const toBlock = it => ({ name: it.name, min: it.min, desc: it.desc, cat: it.cat, cue: it.name + ". " + it.min + (it.min === 1 ? " minute. " : " minutes. ") + (it.tip || "") });
+
+/* Fit a list of exercises to a target length: leave out the most expendable blocks while even their
+   shortest useful lengths don't fit, then share the time out: first up to the standard lengths, then beyond. */
+function fitPlan(pool, target) {
+  const items = pool.map(x => Object.assign({}, x, { out: false }));
+  const kept = () => items.filter(x => !x.out), sumLo = () => kept().reduce((a, x) => a + Math.min(x.lo, x.base), 0);
+  while (sumLo() > target) {
+    const c = kept().filter(x => x.drop > 0).sort((a, b) => b.drop - a.drop)[0];
+    if (!c || kept().length <= 1) break;
+    c.out = true;
+  }
+  const k = kept(), lo = k.map(x => Math.min(x.lo, x.base)), L = lo.reduce((a, b) => a + b, 0), B = k.reduce((a, x) => a + x.base, 0);
+  let raw;
+  if (L > target) raw = lo.map(v => v * target / L);
+  else if (B >= target) { const room = B - L; raw = k.map((x, i) => lo[i] + (room ? (x.base - lo[i]) * (target - L) / room : 0)); }
+  else { const gw = k.filter(x => x.cat !== "warm"), G = gw.reduce((a, x) => a + x.base, 0) || B;   // longer than standard: warm-up stays as is, the rest grows
+    raw = k.map(x => gw.length && x.cat === "warm" ? x.base : x.base + (gw.length ? (x.base / G) : (x.base / B)) * (target - B)); }
+  const fl = raw.map(v => Math.max(1, Math.floor(v))); let rest = target - fl.reduce((a, b) => a + b, 0);
+  raw.map((v, i) => [v - Math.floor(v), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (rest > 0) { fl[i]++; rest--; } });
+  k.forEach((x, i) => { x.min = fl[i]; });
+  return items;
+}
+function newOutline(key) {
+  const p = PLAN[key];
+  const pool = p.ids.map(id => { const e = exById(id); return Object.assign({}, e, { base: e.min }); });
+  return { key, target: p.def, items: fitPlan(pool, p.def), tpl: "" };
+}
+function refit() { S.ol.items = fitPlan(S.ol.items, S.ol.target); }
+const olKept = () => S.ol.items.filter(x => !x.out);
+const olTotal = () => olKept().reduce((a, x) => a + x.min, 0);
+function olAdd(ids) {
+  const its = S.ol.items, mi = its.findIndex(x => x.cat === "match");
+  const add = ids.map(id => { const e = exById(id); return Object.assign({}, e, { base: e.min, drop: Math.min(e.drop, 1) }); });   // chosen by hand: kept unless nothing else fits
+  if (mi >= 0) its.splice(mi, 0, ...add); else its.push(...add);
+  refit();
+}
+const templates = () => lsGet("tca-templates", []);
 
 /* ---------------- State ---------------- */
 const S = { view: "menu", key: null, i: 0, running: false, blockStart: 0, blockElapsed: 0, sessionStart: 0,
@@ -254,8 +328,7 @@ const S = { view: "menu", key: null, i: 0, running: false, blockStart: 0, blockE
 const $ = id => document.getElementById(id);
 const fmt = s => { s = Math.max(0, Math.round(s)); const m = Math.floor(s / 60), r = s % 60; return m + ":" + String(r).padStart(2, "0"); };
 const fmtH = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0"); };
-const plan = () => PLAN[S.key];
-const totalMin = k => PLAN[k].blocks.reduce((a, b) => a + b.min, 0);
+const plan = () => (S.run && S.run.key === S.key ? S.run : Object.assign({ key: S.key }, PLAN[S.key], { blocks: PLAN[S.key] ? newOutline(S.key).items.filter(x => !x.out).map(toBlock) : [] }));
 const now = () => Date.now();
 function sessionSecs() { if (!S.sessionStart) return 0; const end = S.running ? now() : (S.pausedAt || now()); return (end - S.sessionStart - S.pausedTotal) / 1000; }
 
@@ -421,6 +494,7 @@ async function start() {
   S.sessionStart = now(); S.running = true;
   logLine("Session " + S.key + " · " + plan().name + " started " + new Date().toLocaleString("en-GB"));
   if (S.recState !== "on") logLine("Audio recording: not available on this page"); else logLine("Microphone: " + S.micLabel);
+  logLine("Plan: " + plan().blocks.reduce((a, b) => a + b.min, 0) + " min" + (S.run && S.run.tpl ? " · template " + S.run.tpl : "") + " · " + plan().blocks.map(b => b.name + " " + b.min).join(", "));
   startBlock(0, false);
   putSession(sessionRecord(false));
   setTimeout(() => say(plan().blocks[0].cue), 1600);
@@ -706,6 +780,7 @@ function serveBlock(list) {
 
 /* ---------------- Rendering ---------------- */
 function toast(t) { const el = $("toast"); if (el) { el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => { el.textContent = ""; }, 3500); } }
+function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
 function tags(st) { return st.map(s => '<span class="tag ' + s + '">' + s + "</span>").join(""); }
 function render() {
   const app = $("app");
@@ -751,7 +826,7 @@ function render() {
       '<div class="row"><button class="btn wide slim" id="addm">Trained without recording? Add it</button></div>' +
       '<div class="row"><button class="btn ghost" id="home">Back</button></div>';
     $("addm").onclick = () => { S.addBack = "training"; S.view = "addsess"; render(); };
-    app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.view = "overview"; render(); });
+    app.querySelectorAll(".sess").forEach(b => b.onclick = () => { S.key = b.dataset.k; S.ol = newOutline(S.key); S.run = null; S.view = "overview"; render(); });
     $("home").onclick = () => { S.view = "menu"; render(); };
   } else if (S.view === "dashboard") {
     app.innerHTML = '<header><div class="eyebrow">Dashboard</div><h1>Progress</h1><p class="sub">Levels and trends appear once your recordings are analysed. A level needs 5 sessions, a trend 6. Sessions under 15 minutes don\'t count.</p></header><div id="db" class="card">Loading…</div><div class="row"><button class="btn ghost" id="home">Back</button></div>';
@@ -794,14 +869,71 @@ function render() {
       list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Sure?"; return; } await deleteSession(b.dataset.del); render(); });
     });
   } else if (S.view === "overview") {
-    const p = plan(); let t = 0;
+    const p = PLAN[S.key]; if (!S.ol || S.ol.key !== S.key) S.ol = newOutline(S.key);
+    const ol = S.ol, k = olKept(), tot = olTotal(), out = ol.items.filter(x => x.out), tpls = templates().filter(t => t.key === S.key);
+    const LENS = [15, 20, 30, 45, 60, 75, 90];
+    let t = 0;
     app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · ' + p.with + '</div><h1>' + p.name + '</h1><p class="sub focus ' + p.status[0] + '">' + p.focus + '</p></header>' +
-      '<ol class="blocks">' + p.blocks.map(b => { const s = '<li><span class="t">' + fmt(t * 60) + '</span><span><span class="bn">' + b.name + ' · ' + b.min + ' min</span><br><span class="bd">' + b.desc + '</span></span></li>'; t += b.min; return s; }).join("") + "</ol>" +
-      '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="go">Start session</button></div>' +
-      '<div class="status" id="status"></div>';
+      '<div class="sec"><div class="eyebrow">How long can you play?</div><div class="lens">' + LENS.map(m => '<button class="chip' + (m === ol.target ? " on" : "") + '" data-len="' + m + '">' + m + '</button>').join("") +
+        (LENS.includes(ol.target) ? "" : '<button class="chip on">' + ol.target + '</button>') + '<span class="sub" style="align-self:center">min</span></div></div>' +
+      (tpls.length ? '<div class="sec"><div class="eyebrow">Your templates</div><div class="lens">' + tpls.map(x => '<span class="tplchip' + (ol.tpl === x.name ? " on" : "") + '"><button data-tpl="' + encodeURIComponent(x.name) + '">' + esc(x.name) + ' · ' + x.items.reduce((a, i) => a + i.min, 0) + '′</button><button class="x" aria-label="Delete template ' + esc(x.name) + '" data-tdel="' + encodeURIComponent(x.name) + '">×</button></span>').join("") + '</div></div>' : '') +
+      '<div class="sec"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="eyebrow">Outline</span><span class="sub">' + k.length + ' blocks · ' + tot + ' min</span></div>' +
+        '<div class="tl" aria-hidden="true">' + k.map(x => '<i style="flex:' + x.min + ';background:' + CATS[x.cat][1] + '"><b>' + (x.min >= 4 ? x.min : "") + '</b></i>').join("") + '</div>' +
+        '<ol class="ol">' + k.map((x, i) => { const st = t; t += x.min; return '<li style="--c:' + CATS[x.cat][1] + '"><div class="olh"><span class="olt">' + fmt(st * 60) + '</span><span class="oln">' + esc(x.name) + '</span><span class="olm">' + x.min + '′</span></div>' +
+          '<div class="old">' + esc(x.desc || "") + '</div>' +
+          '<div class="olc"><button data-mv="' + i + ',-1"' + (i ? "" : " disabled") + ' aria-label="Move up">↑</button><button data-mv="' + i + ',1"' + (i < k.length - 1 ? "" : " disabled") + ' aria-label="Move down">↓</button><span></span><button data-dm="' + i + ',-1" aria-label="One minute less">−</button><button data-dm="' + i + ',1" aria-label="One minute more">+</button><button data-rm="' + i + '" aria-label="Remove">×</button></div></li>'; }).join("") + '</ol>' +
+        (out.length ? '<p class="note" style="border:0;padding:0;margin:0">Left out to fit ' + ol.target + ' min: ' + out.map(x => '<button class="linkbtn" data-back="' + x.id + '">' + esc(x.name) + ' +</button>').join(" ") + '</p>' : '') +
+        '<div class="row"><button class="btn" id="addex">+ Add exercises</button><button class="btn ghost" id="reset">Standard plan</button></div>' +
+        '<div class="row" id="tplrow"><button class="btn ghost" id="tplsave">Save as template</button></div></div>' +
+      '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="go"' + (k.length ? "" : " disabled") + '>Start · ' + tot + ' min</button></div>' +
+      '<div class="toast" id="toast"></div><div class="status" id="status"></div>';
+    const keptIdx = i => ol.items.indexOf(k[i]);
+    app.querySelectorAll("[data-len]").forEach(b => b.onclick = () => { ol.target = +b.dataset.len; ol.tpl = ""; ol.items.forEach(x => { x.base = (exById(x.id) || x).min; }); refit(); render(); });
+    app.querySelectorAll("[data-mv]").forEach(b => b.onclick = () => { const [i, d] = b.dataset.mv.split(",").map(Number); const a = keptIdx(i), c = keptIdx(i + d); [ol.items[a], ol.items[c]] = [ol.items[c], ol.items[a]]; render(); });
+    app.querySelectorAll("[data-dm]").forEach(b => b.onclick = () => { const [i, d] = b.dataset.dm.split(",").map(Number); const x = k[i]; x.min = Math.max(1, Math.min(120, x.min + d)); x.base = x.min; ol.target = olTotal(); render(); });
+    app.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { ol.items.splice(keptIdx(+b.dataset.rm), 1); refit(); render(); });
+    app.querySelectorAll("[data-back]").forEach(b => b.onclick = () => { const x = ol.items.find(y => y.out && y.id === b.dataset.back); if (x) { x.drop = 0; ol.target = Math.max(ol.target, olTotal() + Math.min(x.lo, x.base)); refit(); render(); } });
+    app.querySelectorAll("[data-tpl]").forEach(b => b.onclick = () => { const x = templates().find(y => y.key === S.key && y.name === decodeURIComponent(b.dataset.tpl)); if (!x) return;
+      ol.items = x.items.map(i => { const e = exById(i.id); return e ? Object.assign({}, e, { base: i.min, min: i.min, out: false }) : null; }).filter(Boolean); ol.target = olTotal(); ol.tpl = x.name; render(); });
+    app.querySelectorAll("[data-tdel]").forEach(b => b.onclick = () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Delete?"; return; } lsSet("tca-templates", templates().filter(y => !(y.key === S.key && y.name === decodeURIComponent(b.dataset.tdel)))); render(); });
+    $("addex").onclick = () => { S.pick = []; S.view = "exmenu"; render(); };
+    $("reset").onclick = () => { const tg = ol.target; S.ol = newOutline(S.key); S.ol.target = tg; S.ol.items.forEach(x => { x.out = false; }); refit(); render(); };
+    $("tplsave").onclick = () => {
+      $("tplrow").innerHTML = '<input id="tpln" maxlength="30" placeholder="Template name, e.g. Short serve fix" value="' + esc(ol.tpl || "") + '" class="field" style="flex:1;min-width:0"><button class="btn" id="tplok" style="flex:0 0 auto">Save</button>';
+      $("tpln").focus();
+      $("tplok").onclick = () => { const n = $("tpln").value.trim(); if (!n) { toast("Give the template a name."); return; }
+        lsSet("tca-templates", templates().filter(y => !(y.key === S.key && y.name === n)).concat([{ key: S.key, name: n, items: olKept().map(x => ({ id: x.id, min: x.min })) }])); ol.tpl = n; render(); toast("Template saved."); };
+    };
     $("back").onclick = () => { S.view = "training"; render(); };
-    $("go").onclick = start;
+    $("go").onclick = () => { S.run = Object.assign({ key: S.key, tpl: ol.tpl }, PLAN[S.key], { blocks: olKept().map(toBlock) }); start(); };
     renderStatus();
+  } else if (S.view === "exmenu") {
+    const inPlan = new Set(olKept().map(x => x.id)), ex = allEx(), pick = S.pick;
+    app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · add to the outline</div><h1>Exercises</h1><p class="sub">Tap to select. They go in before match play, and the outline refits to ' + S.ol.target + ' min.</p></header>' +
+      Object.keys(CATS).map(c => { const l = ex.filter(x => x.cat === c); if (!l.length) return ""; return '<div class="sec"><div class="eyebrow" style="color:' + CATS[c][1] + '">' + CATS[c][0] + '</div><div class="exl">' +
+        l.map(x => '<div class="ex' + (pick.includes(x.id) ? " on" : "") + '" style="--c:' + CATS[c][1] + '"><button class="exb" data-pick="' + x.id + '"><span class="exn">' + (pick.includes(x.id) ? "✓ " : "") + esc(x.name) + (inPlan.has(x.id) ? ' <span class="sub" style="display:inline">· in plan</span>' : '') + '</span><span class="exm">' + x.min + '′</span><span class="exd">' + esc(x.desc || "") + '</span></button>' +
+          (x.own ? '<div class="olc" style="padding:0 10px 10px"><span></span><button data-oedit="' + x.id + '" aria-label="Edit">✎</button><button data-odel="' + x.id + '" aria-label="Delete">×</button></div>' : '') + '</div>').join("") + '</div></div>'; }).join("") +
+      '<div class="row"><button class="btn ghost" id="newex">+ New exercise</button></div>' +
+      '<div class="stick"><div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="addsel"' + (pick.length ? "" : " disabled") + '>Add ' + (pick.length || "") + (pick.length === 1 ? " exercise" : " exercises") + '</button></div></div>';
+    app.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => { const id = b.dataset.pick, i = pick.indexOf(id); if (i >= 0) pick.splice(i, 1); else pick.push(id); render(); });
+    app.querySelectorAll("[data-oedit]").forEach(b => b.onclick = () => { S.exEdit = b.dataset.oedit; S.view = "exedit"; render(); });
+    app.querySelectorAll("[data-odel]").forEach(b => b.onclick = () => { if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = "Delete?"; return; } lsSet("tca-ownex", ownEx().filter(x => x.id !== b.dataset.odel)); render(); });
+    $("newex").onclick = () => { S.exEdit = ""; S.view = "exedit"; render(); };
+    $("back").onclick = () => { S.view = "overview"; render(); };
+    $("addsel").onclick = () => { olAdd(pick); S.ol.tpl = ""; S.view = "overview"; render(); };
+  } else if (S.view === "exedit") {
+    const e = ownEx().find(x => x.id === S.exEdit) || { name: "", cat: "own", min: 10, desc: "", tip: "" };
+    app.innerHTML = '<header><div class="eyebrow">Exercise library</div><h1>' + (S.exEdit ? "Edit exercise" : "New exercise") + '</h1></header>' +
+      '<div class="sec"><label class="sub" for="en">Name</label><input id="en" class="field" maxlength="40" value="' + esc(e.name) + '">' +
+      '<label class="sub" for="ec">Kind</label><select id="ec" class="field">' + Object.keys(CATS).filter(c => c !== "coach").map(c => '<option value="' + c + '"' + (e.cat === c ? " selected" : "") + '>' + CATS[c][0] + '</option>').join("") + '</select>' +
+      '<label class="sub" for="em">Standard length (min)</label><input id="em" class="field" type="number" inputmode="numeric" min="2" max="90" value="' + e.min + '" style="width:6em">' +
+      '<label class="sub" for="ed">What to do</label><textarea id="ed" class="field" rows="3">' + esc(e.desc) + '</textarea>' +
+      '<label class="sub" for="et">Spoken cue (optional, one short line)</label><input id="et" class="field" maxlength="120" value="' + esc(e.tip) + '"></div>' +
+      '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="esave">Save</button></div><div class="toast" id="toast"></div>';
+    $("back").onclick = () => { S.view = "exmenu"; render(); };
+    $("esave").onclick = () => { const n = $("en").value.trim(), m = Math.round(+$("em").value); if (!n) { toast("Give it a name."); return; } if (!(m >= 2 && m <= 90)) { toast("Length 2 to 90 min."); return; }
+      const x = { id: S.exEdit || "own" + now(), own: true, cat: $("ec").value, name: n, min: m, lo: Math.min(m, 5), drop: 5, desc: $("ed").value.trim(), tip: $("et").value.trim() };
+      lsSet("tca-ownex", ownEx().filter(y => y.id !== x.id).concat([x])); S.view = "exmenu"; render(); };
   } else if (S.view === "live") {
     app.innerHTML = '<div class="live">' +
       '<div class="row" style="justify-content:space-between;align-items:center"><span class="eyebrow">Session ' + S.key + ' · Block <span id="bi"></span></span><span class="rec" id="rec"><i></i><span id="rect"></span></span></div>' +
@@ -880,14 +1012,14 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-10-27-4";
+const APP_VERSION = "2026-11-05-1";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
   location.replace(location.pathname + "?r=" + Date.now());
 }
 async function checkUpdate() {
-  if (S.view === "live" || S.view === "overview" || S.view === "done" || S.insRec) return;
+  if (["live", "overview", "exmenu", "exedit", "done"].includes(S.view) || S.insRec) return;
   try {
     const v = (await (await fetch("version.txt?" + Date.now(), { cache: "no-store" })).text()).trim();
     if (!v || v === APP_VERSION) return;
