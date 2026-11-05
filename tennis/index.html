@@ -347,7 +347,11 @@ function pickVoice() {
 }
 try { speechSynthesis.onvoiceschanged = pickVoice; pickVoice(); } catch (e) {}
 function say(text) {
-  try { const u = new SpeechSynthesisUtterance(text); u.lang = "en-GB"; if (voice) u.voice = voice; u.rate = 0.98; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+  try { const u = new SpeechSynthesisUtterance(text); u.lang = "en-GB"; if (voice) u.voice = voice; u.rate = 0.98;
+    // iOS switches the audio route to play a cue and the microphone goes silent until it is reopened.
+    // So reopen it as soon as the cue ends, instead of waiting for the watchdog.
+    u.onend = () => { if (S.running && S.recState === "on" && S.key !== "insight") setTimeout(() => restartRecording("after cue"), 600); };
+    speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
 }
 function chime() {
   try {
@@ -403,8 +407,8 @@ async function restartRecording(why) {
     S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true } });
     S.micLabel = (S.stream.getAudioTracks()[0] || {}).label || "unknown";
     S.seg++; S.restarts = (S.restarts || 0) + 1; watchTrack(); newRecorder();
-    if (S.log) logLine("Audio restarted (" + why + "), mic: " + S.micLabel);
-    if (S.recBroken) { S.recBroken = false; say("Recording resumed."); }
+    if (S.log) logLine(why === "after cue" ? "Audio part " + S.seg + " (mic reopened after cue)" : "Audio restarted (" + why + "), mic: " + S.micLabel);
+    if (S.recBroken) { S.recBroken = false; if (why !== "after cue") say("Recording resumed."); }
     if (S.sid && S.sessionStart && S.key !== "insight") putSession(sessionRecord(false));
     showRecBanner();
   } catch (e) {
@@ -425,7 +429,7 @@ function showRecBanner() {
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && S.running && S.recState === "on" && (S.recBroken || now() - (S.lastChunkAt || 0) > 12000)) restartRecording("back in the app"); });
 setInterval(() => {
   if (!S.running || S.recState !== "on" || !S.rec) return;
-  if (S.rec.state === "recording" && now() - (S.lastChunkAt || now()) > 40000) restartRecording("no audio for 40 s");
+  if (S.rec.state === "recording" && now() - (S.lastChunkAt || now()) > 22000) restartRecording("no audio for 20 s");
 }, 5000);
 function stopRec(r) { return new Promise(res => { if (!r || r.state === "inactive") return res(); const t = setTimeout(res, 3000); r.onstop = () => { clearTimeout(t); res(); }; try { r.stop(); } catch (e) { clearTimeout(t); res(); } }); }
 async function rotateRecording() {
@@ -788,6 +792,30 @@ function serveBlock(list) {
       list.slice().reverse().map(r => '<tr><td>' + dt(r.date) + '</td><td>' + r.kind + '</td><td>' + nserves(r) + '</td><td>' + pc(r.flat.in, r) + '</td><td>' + pc(r.kick.in, r) + '</td><td>' + dfv(r) + '</td></tr>').join("") + '</table></div>';
 }
 
+const mmss = s => s == null ? "–" : Math.floor(s / 60) + ":" + String(Math.round(s % 60)).padStart(2, "0");
+const ddt = d => new Date(d + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+function depthBlock(list) {
+  const done = list.filter(r => r.balls >= 20 && r.secs != null), best = done.slice().sort((a, b) => a.secs - b.secs)[0], last = list[list.length - 1];
+  const pace = r => r.secs ? (r.balls * 60 / r.secs).toFixed(1) : "–";
+  const tile = (k, v, sub) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>';
+  return '<div class="goalrow" style="display:block"><b>Depth</b> <span style="color:var(--muted);font-size:.8rem">· Deepseek Speedrun, 20 deep balls past the T-line</span>' +
+    '<div class="kpis" style="margin-top:10px">' + tile("Best to 20", best ? (best.est ? "≈" : "") + mmss(best.secs) : "–", best ? ddt(best.date) : "not finished yet") +
+      tile("Latest", (last.est ? "≈" : "") + (last.balls >= 20 ? mmss(last.secs) : last.balls + " balls"), ddt(last.date) + (last.balls < 20 && last.secs ? " · in " + mmss(last.secs) : "")) +
+      tile("Pace", pace(last), "deep balls per min") + '</div>' +
+    (last.note ? '<p class="s" style="color:var(--muted);font-size:.8rem;margin:8px 0 0">' + esc(last.note) + '</p>' : '') +
+    '<table class="hist" style="margin-top:10px"><tr><th>Date</th><th>Balls</th><th>Time</th><th>/min</th></tr>' +
+    list.slice().reverse().map(r => '<tr><td>' + ddt(r.date) + '</td><td>' + r.balls + '</td><td>' + (r.est ? "≈" : "") + mmss(r.secs) + '</td><td>' + pace(r) + '</td></tr>').join("") + '</table></div>';
+}
+function steerBlock(list) {
+  const last = list[list.length - 1], best = list.slice().sort((a, b) => b.hits / b.tries - a.hits / a.tries)[0];
+  const tile = (k, v, sub) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + sub + '</div></div>';
+  return '<div class="goalrow" style="display:block"><b>Steering</b> <span style="color:var(--muted);font-size:.8rem">· two down the line, third crosscourt</span>' +
+    '<div class="kpis" style="margin-top:10px">' + tile("Latest", last.hits + "/" + last.tries, ddt(last.date)) + tile("Best", best.hits + "/" + best.tries, ddt(best.date)) + tile("Goal", "8/10", "graduation") + '</div>' +
+    (last.note ? '<p class="s" style="color:var(--muted);font-size:.8rem;margin:8px 0 0">' + esc(last.note) + '</p>' : '') +
+    '<table class="hist" style="margin-top:10px"><tr><th>Date</th><th>Hits</th><th>Tries</th><th>%</th></tr>' +
+    list.slice().reverse().map(r => '<tr><td>' + ddt(r.date) + '</td><td>' + r.hits + '</td><td>' + r.tries + '</td><td>' + Math.round(100 * r.hits / r.tries) + '%</td></tr>').join("") + '</table></div>';
+}
+
 /* ---------------- Rendering ---------------- */
 function toast(t) { const el = $("toast"); if (el) { el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => { el.textContent = ""; }, 3500); } }
 function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
@@ -844,8 +872,10 @@ function render() {
     activity().then(a => {
       const g = (name, n, need, test) => '<div class="goalrow"><span><b>' + name + '</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + test + '</span></span><span class="lv">' + (n < need ? "–" : "–") + '</span><span class="s" style="color:var(--muted);font-size:.8rem;grid-column:1/-1">' + n + ' session' + (n === 1 ? "" : "s") + ' so far · ' + (n < need ? (need - n) + " more until first level" : "waiting for analysis") + '</span></div>';
       $("db").innerHTML = '<div class="tiles"><div class="tile"><div class="k">This week</div><div class="v">' + fmtHM(a.thisWeek) + '</div><div class="s">of ' + WEEK_GOAL_H + ':00 h</div></div><div class="tile"><div class="k">6-week avg</div><div class="v">' + fmtHM(a.avg6) + '</div><div class="s">h per week</div></div><div class="tile"><div class="k">Activity</div><div class="v" style="font-size:1.25rem">' + a.trend + '</div>' + spark(a.weeks) + '</div></div>' +
-        '<div id="serve"></div>' + g("Depth", a.depthN, 5, "Time to 20 and longest rally") + g("Steering", a.steerN, 5, "Graduation: steering test 8/10");
-      loadStats().then(st => { const el = $("serve"); if (el) el.innerHTML = serveBlock(st.serve || []); })
+        '<div id="serve"></div><div id="depth">' + g("Depth", a.depthN, 5, "Deepseek Speedrun: time to 20 deep balls") + '</div><div id="steer">' + g("Steering", a.steerN, 5, "Graduation: steering test 8/10") + '</div>';
+      loadStats().then(st => { const el = $("serve"); if (el) el.innerHTML = serveBlock(st.serve || []);
+          if ((st.depth || []).length && $("depth")) $("depth").innerHTML = depthBlock(st.depth);
+          if ((st.steering || []).length && $("steer")) $("steer").innerHTML = steerBlock(st.steering); })
         .catch(e => { const el = $("serve"); if (el) el.innerHTML = '<div class="goalrow"><span><b>Serve</b><br><span class="s" style="color:var(--muted);font-size:.8rem">' + (e.message === "nokey" ? "Connect Google Drive under Saved sessions to see your serve numbers." : "No serve analysis yet.") + '</span></span></div>'; });
     });
   } else if (S.view === "doc") {
@@ -1024,7 +1054,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-11-05-2";
+const APP_VERSION = "2026-11-05-3";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
