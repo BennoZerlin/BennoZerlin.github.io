@@ -68,6 +68,9 @@ button:focus-visible { outline: 2px solid var(--ball); outline-offset: 2px; }
 .olh { display: grid; grid-template-columns: 48px 1fr auto; gap: 10px; align-items: baseline; }
 .olt { font-family: var(--font-display); color: var(--muted); font-variant-numeric: tabular-nums; }
 .oln { font-weight: 600; min-width: 0; }
+.oln small, .exn small { display: block; font-weight: 400; font-size: .78rem; color: var(--muted); }
+.fund { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; }
+.fund ol { margin: 0; padding-left: 1.2em; font-size: .88rem; display: grid; gap: 2px; }
 .olm { font: 700 1.5rem var(--font-display); color: var(--c); font-variant-numeric: tabular-nums; }
 .old { color: var(--muted); font-size: .82rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .olc { display: flex; gap: 6px; align-items: center; }
@@ -257,19 +260,19 @@ pre.log { background: var(--panel); border: 1px solid var(--line); border-radius
    blocks are left out when a session is short (higher goes first, 0 never). tip = spoken cue after "name, N minutes". */
 const CATS = { warm: ["Warm-up", "#8a948f"], ground: ["Groundstrokes", "#9cc0ea"], dir: ["Direction", "#97d39a"], match: ["Match play", "#d8693a"], serve: ["Serve", "#f0d27a"], coach: ["Coach", "#c9a0f0"], own: ["Own", "#f0907f"] };
 const LIB = [
-  { id: "coach", cat: "coach", name: "Coach session", min: 60, lo: 15, drop: 0, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", tip: "Focus engine: loose wrist, let the racket swing." },
-  { id: "connect", cat: "warm", name: "Connect", min: 10, lo: 5, drop: 0, desc: "Mini-tennis, then slow deep rally. A few balls with the three-finger grip; wrist hold between balls.", tip: "Slow arm, clean contact, every ball past the service line." },
-  { id: "deep", cat: "ground", name: "Deep consistency", min: 10, lo: 7, drop: 4, desc: "Forehand first, then bring in the backhand. Game: 50 or 100 ball rally, or deep middle first to 20.", tip: "Forehand first, then the backhand." },
-  { id: "dirtrain", cat: "dir", name: "Direction training", min: 10, lo: 7, drop: 3, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line. Plus the steering test, once or twice: rally down your forehand line, two balls down the line, the third crosscourt from the forehand corner. Counts past the service line and inside the leftmost 2 m. 10 tries, say the count.", tip: "Find the cross angle. Steering test once or twice: two down the line, third one crosscourt. Say the count." },
-  { id: "dirpress", cat: "dir", name: "Direction under pressure", min: 10, lo: 8, drop: 9, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", tip: "Deep crosscourt when you are pushed wide." },
-  { id: "match", cat: "match", name: "Match play", min: 20, lo: 8, drop: 2, desc: "Tiebreaks, match tiebreaks or a set with the Match Card. Deep ball wins count double. Call every double fault, and \"first out\" when the first serve misses.", tip: "Three deep balls win the point. Call your faults." },
-  { id: "setup", cat: "warm", name: "Set-up and warm-up", min: 5, lo: 3, drop: 0, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", tip: "Shoulder warm-up, shadow serves." },
-  { id: "tprac", cat: "serve", name: "Target practice", min: 20, lo: 8, drop: 5, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", tip: "Ten serves per target. From the knees, core through the ball." },
-  { id: "tseq", cat: "serve", name: "Target sequence", min: 35, lo: 10, drop: 1, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating. Call in or out and the miss in metres.", tip: "Flat down the T twice, kick wide twice, then switch sides. Call every serve." },
-  { id: "loosen", cat: "warm", name: "Loosen", min: 5, lo: 3, drop: 0, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", tip: "Grip pressure three out of ten. Listen for the swoosh." },
-  { id: "whip", cat: "ground", name: "Drop-feed whip", min: 15, lo: 6, drop: 3, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", tip: "Three finger grip, early preparation, breathe out through contact." },
-  { id: "slowball", cat: "ground", name: "Slow ball off the wall", min: 10, lo: 6, drop: 9, desc: "Play it soft, let it come back slow, accelerate through it with the whip.", tip: "Stay relaxed, let the racket swing." },
-  { id: "wallserve", cat: "serve", name: "Serve targets (wall)", min: 30, lo: 6, drop: 4, desc: "Target on the wall at T height: flat down the T twice, kick down the T twice.", tip: "Flat down the T twice, kick down the T twice." }
+  { id: "coach", nick: "Sensei Hour", cat: "coach", name: "Coach session", min: 60, lo: 15, drop: 0, desc: "Engine: loose wrist, racket-head lag, pace from dead balls. The coach decides the drills.", tip: "Focus engine: loose wrist, let the racket swing." },
+  { id: "connect", nick: "Mini Zen", cat: "warm", name: "Connect", min: 10, lo: 5, drop: 0, desc: "Mini-tennis, then slow deep rally. A few balls with the three-finger grip; wrist hold between balls.", tip: "Slow arm, clean contact, every ball past the service line." },
+  { id: "deep", nick: "Deepseek Speedrun", cat: "ground", name: "Deep consistency", min: 10, lo: 7, drop: 4, desc: "How long until 20 deep balls down the middle? Forehand first, then bring in the backhand. Or a 50 or 100 ball rally.", tip: "Forehand first, then the backhand." },
+  { id: "dirtrain", nick: "Hosenträger Hustle", cat: "dir", name: "Direction training", min: 10, lo: 7, drop: 3, desc: "Crosscourt rally, Hosenträger, or X crosscourt then Y down the line. Plus the steering test, once or twice: rally down your forehand line, two balls down the line, the third crosscourt from the forehand corner. Counts past the service line and inside the leftmost 2 m. 10 tries, say the count.", tip: "Find the cross angle. Steering test once or twice: two down the line, third one crosscourt. Say the count." },
+  { id: "dirpress", nick: "Corner Escape", cat: "dir", name: "Direction under pressure", min: 10, lo: 8, drop: 9, desc: "Move and counter crosscourt, or the line-right game. Optionally as an Elfer.", tip: "Deep crosscourt when you are pushed wide." },
+  { id: "match", nick: "Showtime", cat: "match", name: "Match play", min: 20, lo: 8, drop: 2, desc: "Tiebreaks, match tiebreaks or a set with the Match Card. Deep ball wins count double. Call every double fault, and \"first out\" when the first serve misses.", tip: "Three deep balls win the point. Call your faults." },
+  { id: "setup", nick: "Shoulder Boot-up", cat: "warm", name: "Set-up and warm-up", min: 5, lo: 3, drop: 0, desc: "Targets at T, body, wide and long. Shoulder warm-up, shadow serves.", tip: "Shoulder warm-up, shadow serves." },
+  { id: "tprac", nick: "Target Sniper", cat: "serve", name: "Target practice", min: 20, lo: 8, drop: 5, desc: "From the centre: 10 serves at each target in turn, both sides. Count the hits.", tip: "Ten serves per target. From the knees, core through the ball." },
+  { id: "tseq", nick: "Flat Flat Kick Kick", cat: "serve", name: "Target sequence", min: 35, lo: 10, drop: 1, desc: "Deuce: flat T twice, kick wide twice. Then ad side. Keep alternating. Call in or out and the miss in metres.", tip: "Flat down the T twice, kick wide twice, then switch sides. Call every serve." },
+  { id: "loosen", nick: "Noodle Arms", cat: "warm", name: "Loosen", min: 5, lo: 3, drop: 0, desc: "Shake out, shadow swings at grip pressure three of ten, wrist hold.", tip: "Grip pressure three out of ten. Listen for the swoosh." },
+  { id: "whip", nick: "Whip Lab", cat: "ground", name: "Drop-feed whip", min: 15, lo: 6, drop: 3, desc: "Three-finger grip, early preparation, exhale through contact. Waist-high first, then higher balls.", tip: "Three finger grip, early preparation, breathe out through contact." },
+  { id: "slowball", nick: "Lazy River", cat: "ground", name: "Slow ball off the wall", min: 10, lo: 6, drop: 9, desc: "Play it soft, let it come back slow, accelerate through it with the whip.", tip: "Stay relaxed, let the racket swing." },
+  { id: "wallserve", nick: "Wall Street Serve", cat: "serve", name: "Serve targets (wall)", min: 30, lo: 6, drop: 4, desc: "Target on the wall at T height: flat down the T twice, kick down the T twice.", tip: "Flat down the T twice, kick down the T twice." }
 ];
 const PLAN = {
   A: { name: "Coach Focus Training", def: 60, status: ["develop"], with: "Coach · 60 min · once a week", focus: "Develop · current focus: engine", ids: ["coach"] },
@@ -277,12 +280,17 @@ const PLAN = {
   C: { name: "Serve Session", def: 30, status: ["stabilize"], with: "Alone, on court · 30 min · every week", focus: "Stabilize · current focus: kick and flat T", ids: ["setup", "tprac", "tseq"] },
   D: { name: "Tennis Wall Session", def: 20, status: ["develop", "stabilize"], with: "Alone · 20 min · every second week", focus: "Develop + Stabilize · current focus: engine and serve", ids: ["loosen", "whip", "slowball", "wallserve"] }
 };
+const FUNDAMENTALS = ["Deep closed stance", "Early open preparation", "Open consciously with the left arm", "Slow swing", "Eyes stay on the contact point", "Right shoulder: long follow-through forward"];
+const FUND_AT = [60, 300, 600];   // seconds into the session
+const FUND_SAY = "Swing fundamentals. " + FUNDAMENTALS.join(". ") + ".";
+const hasStrokes = blocks => blocks.some(b => !["serve", "coach"].includes(b.cat));   // not for pure serve or coach sessions
+const callName = e => e.nick || e.name;
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 const ownEx = () => lsGet("tca-ownex", []);
 const allEx = () => LIB.concat(ownEx());
 const exById = id => allEx().find(x => x.id === id);
-const toBlock = it => ({ name: it.name, min: it.min, desc: it.desc, cat: it.cat, cue: it.name + ". " + it.min + (it.min === 1 ? " minute. " : " minutes. ") + (it.tip || "") });
+const toBlock = it => ({ name: callName(it), real: it.name, min: it.min, desc: (it.nick && it.nick !== it.name ? it.name + ". " : "") + (it.desc || ""), cat: it.cat, cue: callName(it) + ". " + it.min + (it.min === 1 ? " minute. " : " minutes. ") + (it.tip || "") });
 
 /* Fit a list of exercises to a target length: leave out the most expendable blocks while even their
    shortest useful lengths don't fit, then share the time out: first up to the standard lengths, then beyond. */
@@ -479,7 +487,7 @@ function logLine(text) { S.log.push(fmtH(sessionSecs()) + "  " + text); }
 function startBlock(i, spoken) {
   S.i = i; S.blockStart = now(); S.blockElapsed = 0; S.warned = false;
   const b = plan().blocks[i];
-  logLine("Block " + (i + 1) + " · " + b.name + " (" + b.min + " min)");
+  logLine("Block " + (i + 1) + " · " + (b.real || b.name) + (b.real && b.real !== b.name ? " «" + b.name + "»" : "") + " (" + b.min + " min)");
   if (S.sid && S.sessionStart) putSession(sessionRecord(false));
   if (spoken) { chime(); setTimeout(() => say(b.cue), 700); }
 }
@@ -494,7 +502,8 @@ async function start() {
   S.sessionStart = now(); S.running = true;
   logLine("Session " + S.key + " · " + plan().name + " started " + new Date().toLocaleString("en-GB"));
   if (S.recState !== "on") logLine("Audio recording: not available on this page"); else logLine("Microphone: " + S.micLabel);
-  logLine("Plan: " + plan().blocks.reduce((a, b) => a + b.min, 0) + " min" + (S.run && S.run.tpl ? " · template " + S.run.tpl : "") + " · " + plan().blocks.map(b => b.name + " " + b.min).join(", "));
+  logLine("Plan: " + plan().blocks.reduce((a, b) => a + b.min, 0) + " min" + (S.run && S.run.tpl ? " · template " + S.run.tpl : "") + " · " + plan().blocks.map(b => (b.real || b.name) + " " + b.min).join(", "));
+  S.fundLeft = hasStrokes(plan().blocks) ? FUND_AT.slice() : [];
   startBlock(0, false);
   putSession(sessionRecord(false));
   setTimeout(() => say(plan().blocks[0].cue), 1600);
@@ -507,6 +516,7 @@ function loop() {
     if (S.rec && S.rec.state === "recording" && now() - S.segStart >= SEG_MS) { rotateRecording(); logLine("Audio part " + (S.seg)); }
     const b = plan().blocks[S.i], left = b.min * 60 - blockSecs();
     if (!S.warned && b.min >= 5 && left <= 60) { S.warned = true; say("One minute left."); }
+    if (S.fundLeft && S.fundLeft.length && sessionSecs() >= S.fundLeft[0] && !speechSynthesis.speaking && blockSecs() > 8 && left > 8) { S.fundLeft.shift(); say(FUND_SAY); logLine("Swing fundamentals called"); }
     if (left <= 0) {
       if (S.i + 1 < plan().blocks.length) startBlock(S.i + 1, true);
       else { finish(true); return; }
@@ -877,12 +887,13 @@ function render() {
       '<div class="sec"><div class="eyebrow">How long can you play?</div><div class="lens">' + LENS.map(m => '<button class="chip' + (m === ol.target ? " on" : "") + '" data-len="' + m + '">' + m + '</button>').join("") +
         (LENS.includes(ol.target) ? "" : '<button class="chip on">' + ol.target + '</button>') + '<span class="sub" style="align-self:center">min</span></div></div>' +
       (tpls.length ? '<div class="sec"><div class="eyebrow">Your templates</div><div class="lens">' + tpls.map(x => '<span class="tplchip' + (ol.tpl === x.name ? " on" : "") + '"><button data-tpl="' + encodeURIComponent(x.name) + '">' + esc(x.name) + ' · ' + x.items.reduce((a, i) => a + i.min, 0) + '′</button><button class="x" aria-label="Delete template ' + esc(x.name) + '" data-tdel="' + encodeURIComponent(x.name) + '">×</button></span>').join("") + '</div></div>' : '') +
+      (hasStrokes(k) ? '<div class="fund"><div class="eyebrow">Swing fundamentals · called at 1, 5 and 10 min</div><ol>' + FUNDAMENTALS.map(f => '<li>' + f + '</li>').join("") + '</ol></div>' : '') +
       '<div class="sec"><div class="row" style="justify-content:space-between;align-items:baseline"><span class="eyebrow">Outline</span><span class="sub">' + k.length + ' blocks · ' + tot + ' min</span></div>' +
         '<div class="tl" aria-hidden="true">' + k.map(x => '<i style="flex:' + x.min + ';background:' + CATS[x.cat][1] + '"><b>' + (x.min >= 4 ? x.min : "") + '</b></i>').join("") + '</div>' +
-        '<ol class="ol">' + k.map((x, i) => { const st = t; t += x.min; return '<li style="--c:' + CATS[x.cat][1] + '"><div class="olh"><span class="olt">' + fmt(st * 60) + '</span><span class="oln">' + esc(x.name) + '</span><span class="olm">' + x.min + '′</span></div>' +
+        '<ol class="ol">' + k.map((x, i) => { const st = t; t += x.min; return '<li style="--c:' + CATS[x.cat][1] + '"><div class="olh"><span class="olt">' + fmt(st * 60) + '</span><span class="oln">' + esc(callName(x)) + (x.nick && x.nick !== x.name ? '<small>' + esc(x.name) + '</small>' : '') + '</span><span class="olm">' + x.min + '′</span></div>' +
           '<div class="old">' + esc(x.desc || "") + '</div>' +
           '<div class="olc"><button data-mv="' + i + ',-1"' + (i ? "" : " disabled") + ' aria-label="Move up">↑</button><button data-mv="' + i + ',1"' + (i < k.length - 1 ? "" : " disabled") + ' aria-label="Move down">↓</button><span></span><button data-dm="' + i + ',-1" aria-label="One minute less">−</button><button data-dm="' + i + ',1" aria-label="One minute more">+</button><button data-rm="' + i + '" aria-label="Remove">×</button></div></li>'; }).join("") + '</ol>' +
-        (out.length ? '<p class="note" style="border:0;padding:0;margin:0">Left out to fit ' + ol.target + ' min: ' + out.map(x => '<button class="linkbtn" data-back="' + x.id + '">' + esc(x.name) + ' +</button>').join(" ") + '</p>' : '') +
+        (out.length ? '<p class="note" style="border:0;padding:0;margin:0">Left out to fit ' + ol.target + ' min: ' + out.map(x => '<button class="linkbtn" data-back="' + x.id + '">' + esc(callName(x)) + ' +</button>').join(" ") + '</p>' : '') +
         '<div class="row"><button class="btn" id="addex">+ Add exercises</button><button class="btn ghost" id="reset">Standard plan</button></div>' +
         '<div class="row" id="tplrow"><button class="btn ghost" id="tplsave">Save as template</button></div></div>' +
       '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="go"' + (k.length ? "" : " disabled") + '>Start · ' + tot + ' min</button></div>' +
@@ -911,7 +922,7 @@ function render() {
     const inPlan = new Set(olKept().map(x => x.id)), ex = allEx(), pick = S.pick;
     app.innerHTML = '<header><div class="eyebrow">Session ' + S.key + ' · add to the outline</div><h1>Exercises</h1><p class="sub">Tap to select. They go in before match play, and the outline refits to ' + S.ol.target + ' min.</p></header>' +
       Object.keys(CATS).map(c => { const l = ex.filter(x => x.cat === c); if (!l.length) return ""; return '<div class="sec"><div class="eyebrow" style="color:' + CATS[c][1] + '">' + CATS[c][0] + '</div><div class="exl">' +
-        l.map(x => '<div class="ex' + (pick.includes(x.id) ? " on" : "") + '" style="--c:' + CATS[c][1] + '"><button class="exb" data-pick="' + x.id + '"><span class="exn">' + (pick.includes(x.id) ? "✓ " : "") + esc(x.name) + (inPlan.has(x.id) ? ' <span class="sub" style="display:inline">· in plan</span>' : '') + '</span><span class="exm">' + x.min + '′</span><span class="exd">' + esc(x.desc || "") + '</span></button>' +
+        l.map(x => '<div class="ex' + (pick.includes(x.id) ? " on" : "") + '" style="--c:' + CATS[c][1] + '"><button class="exb" data-pick="' + x.id + '"><span class="exn">' + (pick.includes(x.id) ? "✓ " : "") + esc(callName(x)) + (x.nick && x.nick !== x.name ? '<small>' + esc(x.name) + '</small>' : '') + (inPlan.has(x.id) ? ' <span class="sub" style="display:inline">· in plan</span>' : '') + '</span><span class="exm">' + x.min + '′</span><span class="exd">' + esc(x.desc || "") + '</span></button>' +
           (x.own ? '<div class="olc" style="padding:0 10px 10px"><span></span><button data-oedit="' + x.id + '" aria-label="Edit">✎</button><button data-odel="' + x.id + '" aria-label="Delete">×</button></div>' : '') + '</div>').join("") + '</div></div>'; }).join("") +
       '<div class="row"><button class="btn ghost" id="newex">+ New exercise</button></div>' +
       '<div class="stick"><div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="addsel"' + (pick.length ? "" : " disabled") + '>Add ' + (pick.length || "") + (pick.length === 1 ? " exercise" : " exercises") + '</button></div></div>';
@@ -922,9 +933,10 @@ function render() {
     $("back").onclick = () => { S.view = "overview"; render(); };
     $("addsel").onclick = () => { olAdd(pick); S.ol.tpl = ""; S.view = "overview"; render(); };
   } else if (S.view === "exedit") {
-    const e = ownEx().find(x => x.id === S.exEdit) || { name: "", cat: "own", min: 10, desc: "", tip: "" };
+    const e = ownEx().find(x => x.id === S.exEdit) || { name: "", nick: "", cat: "own", min: 10, desc: "", tip: "" };
     app.innerHTML = '<header><div class="eyebrow">Exercise library</div><h1>' + (S.exEdit ? "Edit exercise" : "New exercise") + '</h1></header>' +
       '<div class="sec"><label class="sub" for="en">Name</label><input id="en" class="field" maxlength="40" value="' + esc(e.name) + '">' +
+      '<label class="sub" for="enk">Call-out name (short, funny, what the audio shouts)</label><input id="enk" class="field" maxlength="30" placeholder="e.g. Return of the Jedi" value="' + esc(e.nick || "") + '">' +
       '<label class="sub" for="ec">Kind</label><select id="ec" class="field">' + Object.keys(CATS).filter(c => c !== "coach").map(c => '<option value="' + c + '"' + (e.cat === c ? " selected" : "") + '>' + CATS[c][0] + '</option>').join("") + '</select>' +
       '<label class="sub" for="em">Standard length (min)</label><input id="em" class="field" type="number" inputmode="numeric" min="2" max="90" value="' + e.min + '" style="width:6em">' +
       '<label class="sub" for="ed">What to do</label><textarea id="ed" class="field" rows="3">' + esc(e.desc) + '</textarea>' +
@@ -932,7 +944,7 @@ function render() {
       '<div class="row"><button class="btn ghost" id="back">Back</button><button class="btn primary" id="esave">Save</button></div><div class="toast" id="toast"></div>';
     $("back").onclick = () => { S.view = "exmenu"; render(); };
     $("esave").onclick = () => { const n = $("en").value.trim(), m = Math.round(+$("em").value); if (!n) { toast("Give it a name."); return; } if (!(m >= 2 && m <= 90)) { toast("Length 2 to 90 min."); return; }
-      const x = { id: S.exEdit || "own" + now(), own: true, cat: $("ec").value, name: n, min: m, lo: Math.min(m, 5), drop: 5, desc: $("ed").value.trim(), tip: $("et").value.trim() };
+      const x = { id: S.exEdit || "own" + now(), own: true, cat: $("ec").value, name: n, nick: $("enk").value.trim(), min: m, lo: Math.min(m, 5), drop: 5, desc: $("ed").value.trim(), tip: $("et").value.trim() };
       lsSet("tca-ownex", ownEx().filter(y => y.id !== x.id).concat([x])); S.view = "exmenu"; render(); };
   } else if (S.view === "live") {
     app.innerHTML = '<div class="live">' +
@@ -1012,7 +1024,7 @@ function renderStatus() {
 }
 
 /* ---------------- Updates: fetch the newest version whenever the app opens ---------------- */
-const APP_VERSION = "2026-11-05-1";
+const APP_VERSION = "2026-11-05-2";
 async function hardReload() {
   toast("Loading the newest version…");
   try { await fetch("index.html?" + Date.now(), { cache: "reload" }); await fetch("./", { cache: "reload" }); } catch (e) {}
